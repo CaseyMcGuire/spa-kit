@@ -29,9 +29,13 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^4.3.0",
+    "graphql": "^16.14.2",
+    "graphql-sse": "^2.6.0",
     "jsdom": "^25.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-relay": "^21.0.1",
+    "relay-runtime": "^21.0.1",
     "tsup": "^8.5.0",
     "typescript": "^5.9.0",
     "vitest": "^2.1.0"

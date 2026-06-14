@@ -8,6 +8,7 @@ A monorepo of reusable React components and utility functions shared across proj
 | --- | --- |
 | [`@spa-utils/utils`](./packages/utils) | Framework-agnostic utility functions |
 | [`@spa-utils/react`](./packages/react) | React components and hooks |
+| [`@spa-utils/react-relay`](./packages/react-relay) | Reusable Relay helpers for React |
 
 ## Tooling
 
