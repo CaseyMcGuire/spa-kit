@@ -1,4 +1,4 @@
-# spa-utils
+# spa-kit
 
 A monorepo of reusable React components and utility functions shared across projects.
 
@@ -6,9 +6,9 @@ A monorepo of reusable React components and utility functions shared across proj
 
 | Package | Description |
 | --- | --- |
-| [`@spa-utils/utils`](./packages/utils) | Framework-agnostic utility functions |
-| [`@spa-utils/react`](./packages/react) | React components and hooks |
-| [`@spa-utils/react-relay`](./packages/react-relay) | Reusable Relay helpers for React |
+| [`@spa-kit/utils`](./packages/utils) | Framework-agnostic utility functions |
+| [`@spa-kit/react`](./packages/react) | React components and hooks |
+| [`@spa-kit/react-relay`](./packages/react-relay) | Reusable Relay helpers for React |
 
 ## Tooling
 
@@ -30,7 +30,7 @@ npm run typecheck      # type-check all packages via project references
 
 ## Adding a new package
 
-1. Create `packages/<name>/` with a `package.json` named `@spa-utils/<name>`.
+1. Create `packages/<name>/` with a `package.json` named `@spa-kit/<name>`.
 2. Copy `tsconfig.json` and `tsup.config.ts` from an existing package.
 3. Add a reference to it in the root `tsconfig.json`.
 4. Run `npm install` to wire up the workspace.

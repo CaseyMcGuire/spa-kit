@@ -7,7 +7,7 @@
     "moduleResolution": "Bundler",
     "baseUrl": ".",
     "paths": {
-      "@spa-utils/*": ["packages/*/src"]
+      "@spa-kit/*": ["packages/*/src"]
     },
     "jsx": "react-jsx",
     "declaration": true,

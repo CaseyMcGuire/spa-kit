@@ -1,11 +1,11 @@
-# @spa-utils/react-relay
+# @spa-kit/react-relay
 
 Reusable [Relay](https://relay.dev) helpers for React.
 
 ## Install
 
 ```bash
-npm install @spa-utils/react-relay react react-dom react-relay relay-runtime graphql
+npm install @spa-kit/react-relay react react-dom react-relay relay-runtime graphql
 ```
 
 `react`, `react-dom`, `react-relay`, `relay-runtime`, and `graphql` are **peer
@@ -19,7 +19,7 @@ network for subscriptions.
 
 ```tsx
 import { RelayEnvironmentProvider } from "react-relay";
-import { createRelayEnvironment } from "@spa-utils/react-relay";
+import { createRelayEnvironment } from "@spa-kit/react-relay";
 
 const environment = createRelayEnvironment({
   // Defaults to "/graphql" (and the same URL for subscriptions).
@@ -54,7 +54,7 @@ the Relay-driven content beneath it. Drop it at the root of a route, page, or
 any subtree that issues Relay queries.
 
 ```tsx
-import { createRelayEnvironment, RelayRoot } from "@spa-utils/react-relay";
+import { createRelayEnvironment, RelayRoot } from "@spa-kit/react-relay";
 
 const environment = createRelayEnvironment();
 

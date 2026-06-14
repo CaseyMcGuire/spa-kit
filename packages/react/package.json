@@ -1,5 +1,5 @@
 {
-  "name": "@spa-utils/react",
+  "name": "@spa-kit/react",
   "version": "0.0.0",
   "description": "Reusable React components and hooks",
   "author": "Casey McGuire",
@@ -26,7 +26,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@spa-utils/utils": "^0.0.0"
+    "@spa-kit/utils": "^0.0.0"
   },
   "peerDependencies": {
     "@stylexjs/stylex": "^0.18.3",

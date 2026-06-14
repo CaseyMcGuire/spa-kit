@@ -1,4 +1,4 @@
-# @spa-utils/react
+# @spa-kit/react
 
 Reusable React components and hooks. Components are styled with
 [StyleX](https://stylexjs.com).
@@ -6,7 +6,7 @@ Reusable React components and hooks. Components are styled with
 ## Install
 
 ```bash
-npm install @spa-utils/react react react-dom @stylexjs/stylex
+npm install @spa-kit/react react react-dom @stylexjs/stylex
 ```
 
 `react`, `react-dom`, and `@stylexjs/stylex` are **peer dependencies**.
@@ -14,7 +14,7 @@ npm install @spa-utils/react react react-dom @stylexjs/stylex
 ## Usage
 
 ```tsx
-import { renderComponent } from "@spa-utils/react";
+import { renderComponent } from "@spa-kit/react";
 
 // Mount a tree into <div id="root"></div>
 renderComponent(<h1>Hello</h1>);
@@ -38,7 +38,7 @@ module.exports = {
     "@stylexjs/postcss-plugin": {
       include: [
         "src/**/*.{js,jsx,ts,tsx}",
-        "node_modules/@spa-utils/react/dist/**/*.{js,cjs}",
+        "node_modules/@spa-kit/react/dist/**/*.{js,cjs}",
       ],
     },
     autoprefixer: {},
@@ -52,11 +52,11 @@ module.exports = {
 import stylexPlugin from "@stylexjs/rollup-plugin";
 
 stylexPlugin({
-  include: ["src/**/*.{js,jsx,ts,tsx}", "node_modules/@spa-utils/react/**"],
+  include: ["src/**/*.{js,jsx,ts,tsx}", "node_modules/@spa-kit/react/**"],
 });
 ```
 
-**Babel plugin** — make sure Babel transforms `node_modules/@spa-utils/react`
+**Babel plugin** — make sure Babel transforms `node_modules/@spa-kit/react`
 (by default Babel ignores `node_modules`, so add an override / `exclude` carve-out
 for this package) and that `@stylexjs/babel-plugin` runs on it.
 
