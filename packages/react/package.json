@@ -1,0 +1,39 @@
+{
+  "name": "@spa-utils/react",
+  "version": "0.0.0",
+  "description": "Reusable React components and hooks",
+  "author": "Casey McGuire",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@spa-utils/utils": "^0.0.0"
+  },
+  "peerDependencies": {
+    "@stylexjs/stylex": "^0.18.3",
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

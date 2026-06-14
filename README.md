@@ -1,0 +1,43 @@
+# spa-utils
+
+A monorepo of reusable React components and utility functions shared across projects.
+
+## Packages
+
+| Package | Description |
+| --- | --- |
+| [`@spa-utils/utils`](./packages/utils) | Framework-agnostic utility functions |
+| [`@spa-utils/react`](./packages/react) | React components and hooks |
+
+## Tooling
+
+- **npm workspaces** — manages the packages under `packages/*`
+- **TypeScript** (project references) — shared base config in `tsconfig.base.json`
+- **tsup** — bundles each package to ESM + CJS + type declarations
+- **Vitest** + Testing Library — tests live next to source as `*.test.ts(x)`
+- **Changesets** — versioning and publishing to npm
+
+## Common commands
+
+```bash
+npm install            # install all workspace dependencies
+npm run build          # build every package
+npm test               # run all tests once
+npm run test:watch     # run tests in watch mode
+npm run typecheck      # type-check all packages via project references
+```
+
+## Adding a new package
+
+1. Create `packages/<name>/` with a `package.json` named `@spa-utils/<name>`.
+2. Copy `tsconfig.json` and `tsup.config.ts` from an existing package.
+3. Add a reference to it in the root `tsconfig.json`.
+4. Run `npm install` to wire up the workspace.
+
+## Releasing
+
+```bash
+npm run changeset          # record what changed
+npm run version-packages   # bump versions + changelogs
+npm run release            # build + publish to npm
+```
