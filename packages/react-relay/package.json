@@ -1,6 +1,6 @@
 {
   "name": "@spa-kit/react-relay",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Reusable Relay helpers for React",
   "author": "Casey McGuire",
   "license": "MIT",
