@@ -46,3 +46,25 @@ const environment = createRelayEnvironment({
 | `store` | fresh in-memory store | A prebuilt Relay `Store`, e.g. hydrated for SSR. |
 | `gcReleaseBufferSize` | Relay default | GC release buffer size for the default store. |
 | `sseClientOptions` | _none_ | Extra options forwarded to the `graphql-sse` client (`retryAttempts`, `lazy`, …). |
+
+## `RelayRoot`
+
+Provides a Relay environment to its subtree and opens a Suspense boundary for
+the Relay-driven content beneath it. Drop it at the root of a route, page, or
+any subtree that issues Relay queries.
+
+```tsx
+import { createRelayEnvironment, RelayRoot } from "@spa-utils/react-relay";
+
+const environment = createRelayEnvironment();
+
+<RelayRoot environment={environment} fallback={<Spinner />}>
+  <Page />
+</RelayRoot>;
+```
+
+| Prop | Required | Description |
+| --- | --- | --- |
+| `environment` | yes | The Relay environment to provide (e.g. from `createRelayEnvironment`). |
+| `fallback` | no | Rendered while the subtree suspends. |
+| `children` | yes | The Relay-driven subtree. |
