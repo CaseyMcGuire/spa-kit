@@ -9,6 +9,7 @@ A monorepo of reusable React components and utility functions shared across proj
 | [`@spa-kit/utils`](./packages/utils) | Framework-agnostic utility functions |
 | [`@spa-kit/react`](./packages/react) | React components and hooks |
 | [`@spa-kit/react-relay`](./packages/react-relay) | Reusable Relay helpers for React |
+| [`@spa-kit/node`](./packages/node) | Node-side (build/server) helpers, e.g. GraphQL schema combining |
 
 ## Tooling
 

@@ -1,0 +1,36 @@
+{
+  "name": "@spa-kit/node",
+  "version": "0.0.0",
+  "description": "Node-side (build/server) helpers for SPA projects",
+  "author": "Casey McGuire",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@graphql-tools/schema": "^10.0.0"
+  },
+  "peerDependencies": {
+    "graphql": "^16"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

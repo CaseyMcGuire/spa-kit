@@ -1,0 +1,1 @@
+export { getGraphqlSchema } from "./getGraphqlSchema.js";

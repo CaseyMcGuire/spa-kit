@@ -1,0 +1,1 @@
+Not a GraphQL file — getGraphqlSchema must skip this, or schema building would fail.
