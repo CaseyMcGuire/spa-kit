@@ -15,6 +15,9 @@
       "require": "./dist/index.cjs"
     }
   },
+  "bin": {
+    "spa-kit-compile-relay": "./dist/bin/compileRelay.cjs"
+  },
   "files": [
     "dist"
   ],

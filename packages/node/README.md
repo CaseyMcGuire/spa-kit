@@ -52,3 +52,23 @@ compileRelay({
 
 `relay-compiler` must be installed and runnable on `PATH` — typically by calling
 this from an npm script.
+
+### CLI
+
+The same thing is exposed as a `spa-kit-compile-relay` command, handy in an npm
+script:
+
+```jsonc
+{
+  "scripts": {
+    "relay": "spa-kit-compile-relay --schema-dir src/main/resources/schema --out src/main/resources/relay/schema.graphql"
+  }
+}
+```
+
+| Flag | Maps to | |
+| --- | --- | --- |
+| `--schema-dir <dir>` | `schemaDirectory` | required |
+| `--out <file>` | `schemaOutputFile` | required |
+| `--command <cmd>` | `command` | optional |
+| `--no-cleanup` | `cleanup: false` | optional |
