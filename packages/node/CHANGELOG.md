@@ -1,5 +1,11 @@
 # @spa-kit/node
 
+## 0.0.2
+
+### Patch Changes
+
+- Add spa-kit-compile-relay CLI
+
 ## 0.0.1
 
 ### Patch Changes

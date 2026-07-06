@@ -1,6 +1,6 @@
 {
   "name": "@spa-kit/node",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Node-side (build/server) helpers for SPA projects",
   "author": "Casey McGuire",
   "license": "MIT",
@@ -16,7 +16,7 @@
     }
   },
   "bin": {
-    "spa-kit-compile-relay": "./dist/bin/compileRelay.cjs"
+    "spa-kit-compile-relay": "dist/bin/compileRelay.cjs"
   },
   "files": [
     "dist"
