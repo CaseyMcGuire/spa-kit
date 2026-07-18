@@ -18,6 +18,12 @@ export interface SpaRoutingResolverOptions {
   onError: RouteAuthorizationDecision;
 }
 
+/** Shape of a spa-routing decision endpoint response. */
+interface RouteDecisionResponse {
+  statusCode: number;
+  location?: string | null;
+}
+
 /**
  * The default {@link RouteAuthorizationResolver}: asks the spa-routing decision
  * endpoint (`/__spa/route-decision`) whether a route is allowed, using the
@@ -52,10 +58,7 @@ export function spaRoutingResolver(options: SpaRoutingResolverOptions): RouteAut
         headers: { Accept: "application/json" },
         signal: request.signal,
       });
-      const { statusCode, location } = (await response.json()) as {
-        statusCode: number;
-        location?: string | null;
-      };
+      const { statusCode, location } = (await response.json()) as RouteDecisionResponse;
       return location != null && statusCode >= 300 && statusCode < 400
         ? { type: "redirect", location }
         : { type: "allow" };

@@ -1,10 +1,10 @@
-export { withRouteAuthorization } from "./withRouteAuthorization.js";
+export { withRouteAuthorization } from "./authorization/withRouteAuthorization.js";
 export type {
   RouteAuthorizationDecision,
   RouteAuthorizationResolver,
   RouteAuthorizationOptions,
-} from "./withRouteAuthorization.js";
-export { spaRoutingResolver } from "./spaRoutingResolver.js";
-export type { SpaRoutingResolverOptions } from "./spaRoutingResolver.js";
-export { NavigationProgress, useNavigationPending } from "./NavigationProgress.js";
-export type { NavigationProgressProps } from "./NavigationProgress.js";
+} from "./authorization/withRouteAuthorization.js";
+export { spaRoutingResolver } from "./authorization/spaRoutingResolver.js";
+export type { SpaRoutingResolverOptions } from "./authorization/spaRoutingResolver.js";
+export { NavigationProgress, useNavigationPending } from "./components/NavigationProgress.js";
+export type { NavigationProgressProps } from "./components/NavigationProgress.js";
