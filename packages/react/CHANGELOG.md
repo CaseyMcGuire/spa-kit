@@ -1,5 +1,11 @@
 # @spa-kit/react
 
+## 0.0.2
+
+### Patch Changes
+
+- Widen @stylexjs/stylex peer dependency to >=0.18.3
+
 ## 0.0.1
 
 ### Patch Changes
