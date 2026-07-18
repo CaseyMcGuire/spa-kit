@@ -15,6 +15,14 @@ function firstLoader(wrapped: RouteObject[]): LoaderFunction {
 
 const allow: RouteAuthorizationResolver = () => ({ type: "allow" });
 
+// jsdom's AbortSignal and the Request global live in different realms, so an
+// aborted signal can't be passed through RequestInit; shadow the getter instead.
+function abortedLoaderArgs(url: string) {
+  const request = new Request(url);
+  Object.defineProperty(request, "signal", { value: { aborted: true } });
+  return { request, params: {}, context: {} } as never;
+}
+
 describe("withRouteAuthorization", () => {
   it("calls resolve with the matched route and allows on an allow decision", async () => {
     const resolve = vi.fn(allow);
@@ -69,6 +77,42 @@ describe("withRouteAuthorization", () => {
     } finally {
       Object.defineProperty(window, "location", { configurable: true, value: original });
     }
+  });
+
+  it("skips the document navigation when the request was already aborted", async () => {
+    const assign = vi.fn();
+    const original = window.location;
+    Object.defineProperty(window, "location", { configurable: true, value: { assign } });
+    try {
+      const resolve: RouteAuthorizationResolver = () => ({ type: "redirect", location: "/login" });
+      const wrapped = withRouteAuthorization([{ id: "Assets", path: "/assets" }], resolve);
+
+      const result = Promise.resolve(
+        firstLoader(wrapped)(abortedLoaderArgs("http://localhost/assets"), {}),
+      );
+      const outcome = await Promise.race([
+        result.then(() => "settled"),
+        new Promise((r) => setTimeout(() => r("pending"), 30)),
+      ]);
+
+      expect(outcome).toBe("pending");
+      expect(assign).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: original });
+    }
+  });
+
+  it("rejects a leaf route that uses lazy", () => {
+    expect(() =>
+      withRouteAuthorization([{ id: "Assets", path: "/assets", lazy: async () => ({}) }], allow),
+    ).toThrow(/lazy/);
+  });
+
+  it("accepts lazy on a parent — only leaves are gated", () => {
+    const routes: RouteObject[] = [
+      { path: "/dashboard", lazy: async () => ({}), children: [{ id: "Settings", path: "settings" }] },
+    ];
+    expect(() => withRouteAuthorization(routes, allow)).not.toThrow();
   });
 
   it("composes with the leaf's own loader, running it once allowed", async () => {

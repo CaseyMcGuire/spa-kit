@@ -46,6 +46,11 @@ export interface RouteAuthorizationOptions {
  * navigation. (A parent route that's navigable at its own path with no index
  * child is not a leaf, so a direct visit to it isn't gated.)
  *
+ * Leaf routes must not use React Router's `lazy`: the gate defines each leaf's
+ * `loader` statically, and React Router ignores lazy-provided properties that
+ * collide with static ones, so a lazy `loader` would silently never run.
+ * Wrapping such a route throws instead.
+ *
  * @example
  * createBrowserRouter(
  *   withRouteAuthorization(routes, spaRoutingResolver({
@@ -67,6 +72,15 @@ export function withRouteAuthorization(
       return { ...route, children: route.children.map(wrap) };
     }
 
+    if (route.lazy != null) {
+      throw new Error(
+        `withRouteAuthorization: route "${route.path ?? "(index)"}" uses \`lazy\`, which is ` +
+          "not supported: the authorization loader is defined statically, and React Router " +
+          "ignores lazy-provided properties that collide with static ones — a lazy `loader` " +
+          "would silently never run. Define the leaf's `loader` and component statically.",
+      );
+    }
+
     const inner = typeof route.loader === "function" ? route.loader : undefined;
 
     const loader: LoaderFunction = async (args) => {
@@ -83,7 +97,11 @@ export function withRouteAuthorization(
         }
         // Leaving the SPA: start the document navigation and never settle, so
         // the denied route never renders while the browser unloads the page.
-        window.location.assign(decision.location);
+        // If this navigation was superseded, skip it: React Router discards
+        // our result, but it could not discard a started document navigation.
+        if (!args.request.signal.aborted) {
+          window.location.assign(decision.location);
+        }
         return new Promise<null>(() => {});
       }
 

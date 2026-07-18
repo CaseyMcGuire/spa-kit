@@ -11,6 +11,14 @@ const callArgs = {
 
 const onError = { type: "allow" } as const;
 
+// jsdom's AbortSignal and the Request global live in different realms, so an
+// aborted signal can't be passed through RequestInit; shadow the getter instead.
+function abortedRequest(url: string): Request {
+  const request = new Request(url);
+  Object.defineProperty(request, "signal", { value: { aborted: true } });
+  return request;
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -46,6 +54,36 @@ describe("spaRoutingResolver", () => {
     await expect(
       spaRoutingResolver({ applicationId: "app", onError })(idless),
     ).rejects.toThrow(/no `id`/);
+  });
+
+  it("returns onError for a non-2xx response even when its body is valid JSON", async () => {
+    const onErrorRedirect = { type: "redirect", location: "/error" } as const;
+    const resolver = spaRoutingResolver({ applicationId: "app", onError: onErrorRedirect });
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: "unauthenticated" }), { status: 401 }),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 500 }), { status: 500 }));
+
+    await expect(resolver(callArgs)).resolves.toEqual(onErrorRedirect);
+    await expect(resolver(callArgs)).resolves.toEqual(onErrorRedirect);
+  });
+
+  it("rethrows an aborted request instead of applying onError", async () => {
+    const aborted = {
+      ...callArgs,
+      request: abortedRequest("http://localhost/assets/123"),
+    };
+    const abortError = new DOMException("The operation was aborted.", "AbortError");
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(abortError);
+
+    await expect(
+      spaRoutingResolver({
+        applicationId: "app",
+        onError: { type: "redirect", location: "/error" },
+      })(aborted),
+    ).rejects.toBe(abortError);
   });
 
   it("returns the onError decision when the request fails", async () => {

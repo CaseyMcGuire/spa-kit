@@ -9,7 +9,8 @@ export interface SpaRoutingResolverOptions {
   /** Decision endpoint. @default "/__spa/route-decision" */
   endpoint?: string;
   /**
-   * The decision to apply when the request itself fails (network/server error).
+   * The decision to apply when the request itself fails (network error,
+   * non-2xx response, or malformed body).
    * Required — rather than silently allowing or throwing, you choose:
    * `{ type: "allow" }` to let navigation proceed (data is still gated
    * server-side), or `{ type: "redirect", location }` to send the user
@@ -32,8 +33,10 @@ interface RouteDecisionResponse {
  * is allowed.
  *
  * Throws if the route has no `id` — a route can't be authorized without one. If
- * the request fails, returns `onError`. Swap this resolver for any function with
- * the same signature to use a different transport or identifier.
+ * the request fails (network error, non-2xx response, or malformed body),
+ * returns `onError`; a request aborted by a superseded navigation rethrows
+ * instead of deciding. Swap this resolver for any function with the same
+ * signature to use a different transport or identifier.
  */
 export function spaRoutingResolver(options: SpaRoutingResolverOptions): RouteAuthorizationResolver {
   const { applicationId, endpoint = "/__spa/route-decision", onError } = options;
@@ -58,11 +61,19 @@ export function spaRoutingResolver(options: SpaRoutingResolverOptions): RouteAut
         headers: { Accept: "application/json" },
         signal: request.signal,
       });
+      if (!response.ok) {
+        return onError;
+      }
       const { statusCode, location } = (await response.json()) as RouteDecisionResponse;
       return location != null && statusCode >= 300 && statusCode < 400
         ? { type: "redirect", location }
         : { type: "allow" };
-    } catch {
+    } catch (error) {
+      // An aborted navigation is not a failed decision: rethrow so React
+      // Router discards the superseded load instead of applying `onError`.
+      if (request.signal.aborted) {
+        throw error;
+      }
       return onError;
     }
   };
