@@ -3,6 +3,9 @@
  *
  * Unlike a plain spread, this guarantees no property from `obj1` is silently
  * overwritten by `obj2` — an overlapping key is treated as a programming error.
+ * The keys compared are exactly the ones a spread copies: own enumerable keys,
+ * string and symbol alike. A key `obj1` merely inherits (e.g. `toString`) is
+ * not a duplicate.
  *
  * @throws If a key exists in both objects.
  *
@@ -14,11 +17,12 @@ export function mergeUniqueOrThrow<T extends object, U extends object>(
   obj1: T,
   obj2: U,
 ): T & U {
-  const keys2 = Object.keys(obj2);
-
-  for (const key of keys2) {
-    if (key in obj1) {
-      throw new Error(`Duplicate key detected: "${key}" cannot be merged.`);
+  for (const key of Reflect.ownKeys(obj2)) {
+    if (!Object.prototype.propertyIsEnumerable.call(obj2, key)) {
+      continue;
+    }
+    if (Object.prototype.hasOwnProperty.call(obj1, key)) {
+      throw new Error(`Duplicate key detected: "${String(key)}" cannot be merged.`);
     }
   }
 

@@ -12,6 +12,27 @@ describe("mergeUniqueOrThrow", () => {
     );
   });
 
+  it("throws on an overlapping symbol key", () => {
+    const shared = Symbol("shared");
+    expect(() => mergeUniqueOrThrow({ [shared]: 1 }, { [shared]: 2 })).toThrow(
+      /Duplicate key detected: "Symbol\(shared\)"/,
+    );
+  });
+
+  it("merges disjoint symbol keys", () => {
+    const first = Symbol("first");
+    const second = Symbol("second");
+    const merged = mergeUniqueOrThrow({ [first]: 1 }, { [second]: 2 });
+    expect(merged[first]).toBe(1);
+    expect(merged[second]).toBe(2);
+  });
+
+  it("does not treat a key obj1 merely inherits as a duplicate", () => {
+    const merged = mergeUniqueOrThrow({ a: 1 }, { toString: () => "custom" });
+    expect(merged.a).toBe(1);
+    expect(String(merged)).toBe("custom");
+  });
+
   it("does not mutate its inputs", () => {
     const a = { x: 1 };
     const b = { y: 2 };
