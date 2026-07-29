@@ -22,6 +22,37 @@ before that leaf's loader runs. The default resolver, `spaRoutingResolver`,
 identifies each route to the server by its React Router `id` (so set one on every
 route).
 
+For the common setup, `createSpaRoutingBrowserRouter` performs the standard
+composition in one call:
+
+```tsx
+import { createSpaRoutingBrowserRouter } from "@spa-kit/react-router";
+
+const router = createSpaRoutingBrowserRouter(routes, {
+  applicationId: "app",
+  onError: { type: "redirect", location: "/500" },
+});
+```
+
+It also accepts the default resolver's `endpoint`, `routeAuthorizationOptions`
+forwarded to `withRouteAuthorization` (e.g. `redirectMode`), and `routerOptions`
+forwarded to React Router's `createBrowserRouter`:
+
+```tsx
+const router = createSpaRoutingBrowserRouter(routes, {
+  applicationId: "app",
+  endpoint: "/custom/route-decision",
+  onError: { type: "redirect", location: "/500" },
+  routeAuthorizationOptions: { redirectMode: "router" },
+  routerOptions: { basename: "/app" },
+});
+```
+
+Use the primitives directly when you need a custom resolver or another router
+flavor.
+
+The equivalent explicit composition is:
+
 ```tsx
 import { createBrowserRouter } from "react-router";
 import { withRouteAuthorization, spaRoutingResolver } from "@spa-kit/react-router";
