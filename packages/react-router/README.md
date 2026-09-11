@@ -107,11 +107,17 @@ GET /__spa/route-decision?applicationId=app&routeId=AssetDetail&parameters.id=12
 → { "statusCode": 302, "location": "/login" }
 ```
 
-If the request itself fails (network/server error), it returns the required
-`onError` decision — there's no silent default, so you choose: `{ type: "allow" }`
-to let navigation through (data is still gated server-side), or
-`{ type: "redirect", location }` to send the user to a fallback (e.g. an error or
-login page).
+The JSON decision's integer `statusCode` determines the result: `2xx` allows
+navigation, and `3xx` redirects when `location` is a nonblank string. Other
+decisions (including `403`, `404`, `500`, a missing or invalid `statusCode`, or
+a redirect without a valid location) return the required `onError` decision,
+even when the endpoint's HTTP response is `200`.
+
+Request failures (network errors, non-2xx HTTP responses, or invalid JSON) also
+return `onError`. Choose `{ type: "redirect", location }` to send the user to a
+fallback (e.g. an error or login page). Choosing `{ type: "allow" }` explicitly
+lets navigation through even for denial/error decisions; data authorization
+must still be enforced server-side.
 
 ### A custom resolver
 

@@ -49,6 +49,69 @@ describe("spaRoutingResolver", () => {
     });
   });
 
+  it.each([200, 204, 299])("allows a successful %i decision", async (statusCode) => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ statusCode })),
+    );
+
+    await expect(
+      spaRoutingResolver({
+        applicationId: "app",
+        onError: { type: "redirect", location: "/error" },
+      })(callArgs),
+    ).resolves.toEqual({ type: "allow" });
+  });
+
+  it.each([199, 400, 403, 404, 500, 600])(
+    "returns onError for a %i decision inside an HTTP 200 response",
+    async (statusCode) => {
+      const fallback = { type: "redirect", location: "/error" } as const;
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(JSON.stringify({ statusCode })),
+      );
+
+      await expect(
+        spaRoutingResolver({ applicationId: "app", onError: fallback })(callArgs),
+      ).resolves.toEqual(fallback);
+    },
+  );
+
+  it.each([
+    null,
+    [],
+    "allow",
+    {},
+    { location: "/login" },
+    { statusCode: null },
+    { statusCode: "200" },
+    { statusCode: 200.5 },
+    { statusCode: "302", location: "/login" },
+    { statusCode: 302.5, location: "/login" },
+    { statusCode: 302 },
+    { statusCode: 302, location: null },
+    { statusCode: 302, location: "" },
+    { statusCode: 302, location: "   " },
+    { statusCode: 302, location: 123 },
+    { statusCode: 302, location: {} },
+  ].map((body) => [body]))("returns onError for a malformed decision: %j", async (body) => {
+    const fallback = { type: "redirect", location: "/error" } as const;
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify(body)));
+
+    await expect(
+      spaRoutingResolver({ applicationId: "app", onError: fallback })(callArgs),
+    ).resolves.toEqual(fallback);
+  });
+
+  it("honors an explicit allow fallback for an unsuccessful decision", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ statusCode: 403 })),
+    );
+
+    await expect(spaRoutingResolver({ applicationId: "app", onError })(callArgs)).resolves.toEqual(
+      onError,
+    );
+  });
+
   it("throws when the route has no id", async () => {
     const idless = { ...callArgs, route: { path: "/oops" } as RouteObject };
     await expect(

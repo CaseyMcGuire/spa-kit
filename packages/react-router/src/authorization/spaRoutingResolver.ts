@@ -9,28 +9,24 @@ export interface SpaRoutingResolverOptions {
   /** Decision endpoint. @default "/__spa/route-decision" */
   endpoint?: string;
   /**
-   * The decision to apply when the request itself fails (network error,
-   * non-2xx response, or malformed body).
+   * The decision to apply when the request fails, the body is malformed, or
+   * the returned statusCode is neither a 2xx success nor a valid 3xx redirect.
    * Required — rather than silently allowing or throwing, you choose:
-   * `{ type: "allow" }` to let navigation proceed (data is still gated
-   * server-side), or `{ type: "redirect", location }` to send the user
-   * somewhere (e.g. an error or login page).
+   * `{ type: "allow" }` to let navigation proceed even for denial/error
+   * decisions (data is still gated server-side), or
+   * `{ type: "redirect", location }` to send the user somewhere
+   * (e.g. an error or login page).
    */
   onError: RouteAuthorizationDecision;
-}
-
-/** Shape of a spa-routing decision endpoint response. */
-interface RouteDecisionResponse {
-  statusCode: number;
-  location?: string | null;
 }
 
 /**
  * The default {@link RouteAuthorizationResolver}: asks the spa-routing decision
  * endpoint (`/__spa/route-decision`) whether a route is allowed, using the
  * route's `id` as the server route id and sending its path params
- * (`parameters.*`). A `3xx` + `location` response is a redirect; anything else
- * is allowed.
+ * (`parameters.*`). An integer `2xx` statusCode allows navigation; an integer
+ * `3xx` with a nonblank string `location` redirects. Other decisions return
+ * `onError`, including denial/error statuses and malformed bodies.
  *
  * Throws if the route has no `id` — a route can't be authorized without one. If
  * the request fails (network error, non-2xx response, or malformed body),
@@ -61,13 +57,12 @@ export function spaRoutingResolver(options: SpaRoutingResolverOptions): RouteAut
         headers: { Accept: "application/json" },
         signal: request.signal,
       });
+
       if (!response.ok) {
         return onError;
       }
-      const { statusCode, location } = (await response.json()) as RouteDecisionResponse;
-      return location != null && statusCode >= 300 && statusCode < 400
-        ? { type: "redirect", location }
-        : { type: "allow" };
+
+      return parseRouteDecision(await response.json()) ?? onError;
     } catch (error) {
       // An aborted navigation is not a failed decision: rethrow so React
       // Router discards the superseded load instead of applying `onError`.
@@ -77,4 +72,31 @@ export function spaRoutingResolver(options: SpaRoutingResolverOptions): RouteAut
       return onError;
     }
   };
+}
+
+/** Parse supported decisions; return undefined when the caller must apply its fallback. */
+function parseRouteDecision(body: unknown): RouteAuthorizationDecision | undefined {
+  if (body == null || typeof body !== "object") {
+    return undefined;
+  }
+
+  const { statusCode, location } = body as Record<string, unknown>;
+  if (typeof statusCode !== "number" || !Number.isInteger(statusCode)) {
+    return undefined;
+  }
+
+  if (statusCode >= 200 && statusCode < 300) {
+    return { type: "allow" };
+  }
+
+  if (
+    statusCode >= 300 &&
+    statusCode < 400 &&
+    typeof location === "string" &&
+    location.trim().length > 0
+  ) {
+    return { type: "redirect", location };
+  }
+
+  return undefined;
 }
