@@ -51,7 +51,7 @@ describe("spaRoutingResolver", () => {
 
   it.each([200, 204, 299])("allows a successful %i decision", async (statusCode) => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ statusCode })),
+      new Response(JSON.stringify({ statusCode, location: null })),
     );
 
     await expect(
@@ -85,6 +85,8 @@ describe("spaRoutingResolver", () => {
     { statusCode: null },
     { statusCode: "200" },
     { statusCode: 200.5 },
+    { statusCode: 200, location: 123 },
+    { statusCode: 200, location: {} },
     { statusCode: "302", location: "/login" },
     { statusCode: 302.5, location: "/login" },
     { statusCode: 302 },

@@ -20,6 +20,12 @@ export interface SpaRoutingResolverOptions {
   onError: RouteAuthorizationDecision;
 }
 
+/** JSON contract of the spa-routing decision endpoint. */
+interface RouteDecisionResponse {
+  statusCode: number;
+  location?: string | null;
+}
+
 /**
  * The default {@link RouteAuthorizationResolver}: asks the spa-routing decision
  * endpoint (`/__spa/route-decision`) whether a route is allowed, using the
@@ -62,7 +68,12 @@ export function spaRoutingResolver(options: SpaRoutingResolverOptions): RouteAut
         return onError;
       }
 
-      return parseRouteDecision(await response.json()) ?? onError;
+      const body: unknown = await response.json();
+      if (!isRouteDecisionResponse(body)) {
+        return onError;
+      }
+
+      return toRouteAuthorizationDecision(body) ?? onError;
     } catch (error) {
       // An aborted navigation is not a failed decision: rethrow so React
       // Router discards the superseded load instead of applying `onError`.
@@ -74,17 +85,24 @@ export function spaRoutingResolver(options: SpaRoutingResolverOptions): RouteAut
   };
 }
 
-/** Parse supported decisions; return undefined when the caller must apply its fallback. */
-function parseRouteDecision(body: unknown): RouteAuthorizationDecision | undefined {
+function isRouteDecisionResponse(body: unknown): body is RouteDecisionResponse {
   if (body == null || typeof body !== "object") {
-    return undefined;
+    return false;
   }
 
   const { statusCode, location } = body as Record<string, unknown>;
-  if (typeof statusCode !== "number" || !Number.isInteger(statusCode)) {
-    return undefined;
-  }
+  return (
+    typeof statusCode === "number" &&
+    Number.isInteger(statusCode) &&
+    (location == null || typeof location === "string")
+  );
+}
 
+/** Map supported decisions; return undefined when the caller must apply its fallback. */
+function toRouteAuthorizationDecision({
+  statusCode,
+  location,
+}: RouteDecisionResponse): RouteAuthorizationDecision | undefined {
   if (statusCode >= 200 && statusCode < 300) {
     return { type: "allow" };
   }
@@ -92,7 +110,7 @@ function parseRouteDecision(body: unknown): RouteAuthorizationDecision | undefin
   if (
     statusCode >= 300 &&
     statusCode < 400 &&
-    typeof location === "string" &&
+    location != null &&
     location.trim().length > 0
   ) {
     return { type: "redirect", location };
