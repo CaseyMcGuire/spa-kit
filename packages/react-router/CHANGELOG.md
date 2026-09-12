@@ -1,5 +1,11 @@
 # @spa-kit/react-router
 
+## 0.0.4
+
+### Patch Changes
+
+- Validate route decision responses against an explicit API contract. Allow only successful 2xx decisions, preserve valid redirects, and apply the configured `onError` decision to denial/error statuses and malformed responses instead of implicitly allowing navigation.
+
 ## 0.0.3
 
 ### Patch Changes

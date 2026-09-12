@@ -1,6 +1,6 @@
 {
   "name": "@spa-kit/react-router",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Server-authorized client navigation for React Router",
   "author": "Casey McGuire",
   "license": "MIT",
