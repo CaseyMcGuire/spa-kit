@@ -1,3 +1,10 @@
+export { createSpaRouter } from "./routing/createSpaRouter.js";
+export type {
+  SpaRouteDefinition,
+  SpaRouteConfig,
+  SpaRouterConfig,
+  CreateSpaRouterOptions,
+} from "./routing/createSpaRouter.js";
 export { withRouteAuthorization } from "./authorization/withRouteAuthorization.js";
 export type {
   RouteAuthorizationDecision,

@@ -1,7 +1,8 @@
 # @spa-kit/react-router
 
-Server-authorized client navigation for [React Router](https://reactrouter.com)
-(v7 data router), plus a top progress bar for the wait.
+Typed routing and server-authorized client navigation for
+[React Router](https://reactrouter.com) (v7 data router), plus a top progress bar
+for the wait.
 
 ## Install
 
@@ -9,13 +10,102 @@ Server-authorized client navigation for [React Router](https://reactrouter.com)
 npm install @spa-kit/react-router react react-dom react-router
 ```
 
-`react`, `react-dom`, and `react-router` (v7+) are **peer dependencies**.
+`react`, `react-dom`, and `react-router` (v7.9.3+) are **peer dependencies**.
+
+## Typed routing from generated routes
+
+`createSpaRouter` creates a browser Data Router from spa-routing's generated
+route builders. Regenerate routes with a spa-routing version that emits
+`parse(params, searchParams)` on each builder. TypeScript 5.4+ is required.
+
+```tsx
+import { RouterProvider } from "react-router";
+import { createSpaRouter } from "@spa-kit/react-router";
+import { WikiRoutes } from "./generated/WikiRoutes";
+
+const router = createSpaRouter(WikiRoutes, {
+  Index: {
+    render: () => <WikiIndex />,
+  },
+  View: {
+    render: (params, query) => (
+      <WikiView wikiId={params.wikiId} tab={query.tab} />
+    ),
+  },
+  Edit: {
+    render: (params) => <WikiEditor wikiId={params.wikiId} />,
+  },
+});
+
+export default function App() {
+  return <RouterProvider router={router} />;
+}
+```
+
+Every generated key requires a configuration with a `render` callback. In this
+example, `params.wikiId` is `string` and `query.tab` is `string | undefined`;
+accessing undeclared parameters or omitting `Edit` is a compile error. Optional
+path values remain optional, and repeated queries are `readonly string[]`
+(possibly `undefined` when optional). Renderers return React content; put hooks
+in the components they render.
+
+Paths and route IDs come from the generated definitions. Each configuration can
+also supply native React Router options such as `middleware`, `loader`, `action`,
+`shouldRevalidate`, `ErrorBoundary`, and `HydrateFallback`. Those handlers retain
+React Router's own argument types. Routes are flat: `children`, `index`, `lazy`,
+`path`, `id`, `Component`, and `element` are not configuration options.
+
+The generated parser validates declared values before user middleware, loaders,
+or actions run. A `null` parser result becomes a 400 route error, handled by
+`ErrorBoundary` or `errorElement`. Renderers receive only declared values from
+the current URL, even when a query-only navigation skips loader revalidation.
+Path values are already decoded by React Router and are passed through as-is.
+Until initial middleware/loaders finish, the router renders nothing unless a
+`HydrateFallback` or `hydrateFallbackElement` is configured.
+
+The optional third argument forwards browser router options, for example
+`createSpaRouter(WikiRoutes, config, { basename: "/app" })`. The helper always
+sets `future.v8_middleware: true`. As with native React Router, a custom
+`dataStrategy` must run route middleware. To type middleware context in your
+loaders/actions, add the following application-level declaration:
+
+```ts
+import "react-router";
+
+declare module "react-router" {
+  interface Future {
+    v8_middleware: true;
+  }
+}
+```
+
+Authorization is configured separately. `createSpaRouter` makes no authorization
+requests; it accepts ordinary middleware on each route:
+
+```tsx
+View: {
+  middleware: [async ({ request }, next) => {
+    console.log("Navigating to", request.url);
+    await next();
+  }],
+  render: (params, query) => (
+    <WikiView wikiId={params.wikiId} tab={query.tab} />
+  ),
+},
+```
+
+Run the router's runtime and compiler tests with:
+
+```bash
+npm test -- packages/react-router/src/routing/createSpaRouter.test.tsx
+npm run typecheck:test --workspace @spa-kit/react-router
+```
+
+## Authorizing routes
 
 > This guards the *navigation* (don't render a route the user can't see; redirect
 > cleanly). It is **not** a security boundary — your API must still authorize the
 > underlying data server-side.
-
-## Authorizing routes
 
 `withRouteAuthorization` wraps each **leaf** route so a page navigation is checked
 before that leaf's loader runs. The default resolver, `spaRoutingResolver`,
