@@ -49,6 +49,27 @@ describe("spaRoutingResolver", () => {
     });
   });
 
+  it("forwards repeated, empty, and encoded query values without colliding with route metadata", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ statusCode: 200 })),
+    );
+    const request = new Request(
+      "http://localhost/assets/123?tag=one&tag=&q=a+b%2B%26%E9%9B%AA&applicationId=other&parameters.id=other",
+    );
+
+    await spaRoutingResolver({ applicationId: "app", onError })({ ...callArgs, request });
+
+    const query = new URL(String(fetchSpy.mock.calls[0]![0]), "http://localhost").searchParams;
+    expect(query.getAll("queryParameters.tag")).toEqual(["one", ""]);
+    expect(query.get("queryParameters.q")).toBe("a b+&雪");
+    expect(query.get("queryParameters.applicationId")).toBe("other");
+    expect(query.get("queryParameters.parameters.id")).toBe("other");
+    expect(query.get("applicationId")).toBe("app");
+    expect(query.get("routeId")).toBe("AssetDetail");
+    expect(query.get("parameters.id")).toBe("123");
+    expect(fetchSpy.mock.calls[0]![1]?.signal).toBe(request.signal);
+  });
+
   it.each([200, 204, 299])("allows a successful %i decision", async (statusCode) => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ statusCode, location: null })),

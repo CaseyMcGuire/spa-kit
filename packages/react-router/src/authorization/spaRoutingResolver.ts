@@ -30,7 +30,8 @@ interface RouteDecisionResponse {
  * The default {@link RouteAuthorizationResolver}: asks the spa-routing decision
  * endpoint (`/__spa/route-decision`) whether a route is allowed, using the
  * route's `id` as the server route id and sending its path params
- * (`parameters.*`). An integer `2xx` statusCode allows navigation; an integer
+ * (`parameters.*`) and URL query values (`queryParameters.*`, preserving repeats).
+ * An integer `2xx` statusCode allows navigation; an integer
  * `3xx` with a nonblank string `location` redirects. Other decisions return
  * `onError`, including denial/error statuses and malformed bodies.
  *
@@ -56,6 +57,9 @@ export function spaRoutingResolver(options: SpaRoutingResolverOptions): RouteAut
     const query = new URLSearchParams({ applicationId, routeId });
     for (const [name, value] of Object.entries(params)) {
       query.set(`parameters.${name}`, value);
+    }
+    for (const [name, value] of new URL(request.url).searchParams) {
+      query.append(`queryParameters.${name}`, value);
     }
 
     try {

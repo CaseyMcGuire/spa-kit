@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { createBrowserRouter, useLocation, useParams } from "react-router";
-import type { NonIndexRouteObject } from "react-router";
+import type { MiddlewareFunction, NonIndexRouteObject } from "react-router";
+import { spaRouteContext } from "./spaRouteContext.js";
 
 /** The metadata and parser exposed by a generated spa-routing route builder. */
 export interface SpaRouteDefinition {
@@ -39,11 +40,10 @@ export type SpaRouterConfig<TRoutes extends Record<string, SpaRouteDefinition>> 
 
 type BrowserRouterOptions = NonNullable<Parameters<typeof createBrowserRouter>[1]>;
 
-/** Browser router options. Middleware is always enabled by `createSpaRouter`. */
-export type CreateSpaRouterOptions = Omit<BrowserRouterOptions, "future"> & {
-  future?: Omit<NonNullable<BrowserRouterOptions["future"]>, "v8_middleware"> & {
-    v8_middleware?: true;
-  };
+/** Browser router options plus middleware shared by all generated routes. */
+export type CreateSpaRouterOptions = BrowserRouterOptions & {
+  /** Runs after parameter validation and before each route's own middleware. */
+  sharedMiddleware?: readonly MiddlewareFunction[];
 };
 
 /**
@@ -57,7 +57,9 @@ export type CreateSpaRouterOptions = Omit<BrowserRouterOptions, "future"> & {
  * decoded values for the current location, including query-only navigations.
  * Use `ErrorBoundary` or `errorElement` to customize route errors.
  *
- * Native route middleware is supported without any built-in authorization.
+ * Shared middleware runs on every generated route, before its own middleware.
+ * The matched generated identity is available through `spaRouteContext`.
+ * Middleware uses native React Router signatures without built-in authorization.
  * The returned router can be passed directly to `<RouterProvider>`.
  */
 export function createSpaRouter<TRoutes extends Record<string, SpaRouteDefinition>>(
@@ -65,6 +67,8 @@ export function createSpaRouter<TRoutes extends Record<string, SpaRouteDefinitio
   config: SpaRouterConfig<NoInfer<TRoutes>>,
   options: CreateSpaRouterOptions = {},
 ): ReturnType<typeof createBrowserRouter> {
+  const { sharedMiddleware = [], ...routerOptions } = options;
+
   for (const key of Object.keys(config)) {
     if (!Object.prototype.hasOwnProperty.call(routes, key)) {
       throw new Error(`createSpaRouter: unknown route configuration "${key}".`);
@@ -76,18 +80,16 @@ export function createSpaRouter<TRoutes extends Record<string, SpaRouteDefinitio
       throw new Error(`createSpaRouter: route "${key}" requires a render function.`);
     }
 
-    return createRouteObject(routes[key]!, config[key]!);
+    return createRouteObject(routes[key]!, config[key]!, sharedMiddleware);
   });
 
-  return createBrowserRouter(routeObjects, {
-    ...options,
-    future: { ...options.future, v8_middleware: true },
-  });
+  return createBrowserRouter(routeObjects, routerOptions);
 }
 
 function createRouteObject<TRoute extends SpaRouteDefinition>(
   route: TRoute,
   config: SpaRouteConfig<TRoute>,
+  sharedMiddleware: readonly MiddlewareFunction[],
 ): NonIndexRouteObject {
   const { render, middleware = [], ...routeOptions } = config;
 
@@ -108,9 +110,11 @@ function createRouteObject<TRoute extends SpaRouteDefinition>(
     hydrateFallbackElement: routeOptions.hydrateFallbackElement
       ?? (routeOptions.HydrateFallback ? undefined : <></>),
     middleware: [
-      ({ params, request }) => {
+      ({ params, request, context }) => {
         parseRoute(route, params, new URL(request.url).searchParams);
+        context.set(spaRouteContext, { applicationId: route.applicationId, routeId: route.routeId });
       },
+      ...sharedMiddleware,
       ...middleware,
     ],
   };

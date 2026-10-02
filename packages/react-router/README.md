@@ -64,10 +64,10 @@ Until initial middleware/loaders finish, the router renders nothing unless a
 `HydrateFallback` or `hydrateFallbackElement` is configured.
 
 The optional third argument forwards browser router options, for example
-`createSpaRouter(WikiRoutes, config, { basename: "/app" })`. The helper always
-sets `future.v8_middleware: true`. As with native React Router, a custom
-`dataStrategy` must run route middleware. To type middleware context in your
-loaders/actions, add the following application-level declaration:
+`createSpaRouter(WikiRoutes, config, { basename: "/app" })`. No runtime
+`future.v8_middleware` flag is needed in Data Mode. As with native React Router,
+a custom `dataStrategy` must run route middleware. To type middleware context
+in your loaders/actions, add the following application-level declaration:
 
 ```ts
 import "react-router";
@@ -80,7 +80,29 @@ declare module "react-router" {
 ```
 
 Authorization is configured separately. `createSpaRouter` makes no authorization
-requests; it accepts ordinary middleware on each route:
+requests itself. Register ordinary middleware once for all generated routes with
+`sharedMiddleware` in the third argument:
+
+```tsx
+const router = createSpaRouter(WikiRoutes, routeConfig, {
+  sharedMiddleware: [authMiddleware],
+});
+```
+
+Here, `authMiddleware` is a separately supplied React Router middleware function.
+Omit `sharedMiddleware` when no shared behavior is needed. Shared middleware uses
+React Router's native arguments, including `request`, `params`, and `context`;
+only `render` receives generated parameter and query types.
+
+Execution order is parameter validation, shared middleware in array order,
+route-specific middleware in array order, then the loader or action. Code after
+`await next()` runs in reverse order. Shared middleware also runs on initial
+navigation without loaders and on query-only navigations that skip loader
+revalidation. It follows React Router's middleware lifecycle, including the
+loader revalidation after an action. Redirects prevent downstream handlers from
+running, and errors use the matched route's error boundary.
+
+Individual routes can also configure their own middleware:
 
 ```tsx
 View: {
@@ -107,41 +129,56 @@ npm run typecheck:test --workspace @spa-kit/react-router
 > cleanly). It is **not** a security boundary — your API must still authorize the
 > underlying data server-side.
 
+### Shared authorization middleware
+
+Create the authorization middleware once and register it with `sharedMiddleware`:
+
+```tsx
+import { createSpaRouter, createSpaRouteAuthorization } from "@spa-kit/react-router";
+
+const authMiddleware = createSpaRouteAuthorization({
+  onError: { type: "redirect", location: "/error" },
+});
+
+const router = createSpaRouter(WikiRoutes, routeConfig, {
+  sharedMiddleware: [authMiddleware],
+});
+```
+
+`createSpaRouter` supplies the matched generated route's `applicationId` and
+`routeId` through `spaRouteContext`, after parameter validation and before shared
+middleware runs. The authorization middleware reads those identifiers and sends
+the matched path parameters and all URL query values to `/__spa/route-decision`.
+There is no per-route authorization configuration or second route lookup, and
+the router's `basename` needs no separate authorization configuration.
+
+An allow decision continues to subsequent middleware, loaders, and actions. A
+redirect decision prevents them from running. Requests are cancelled with the
+navigation, and a late decision cannot redirect or continue an aborted request.
+
+`createSpaRouteAuthorization` accepts:
+
+- **`onError`** — required fallback decision for failed requests, malformed
+  responses, or denial statuses. See the default resolver below.
+- **`endpoint`** — decision endpoint; defaults to `/__spa/route-decision`.
+- **`redirectMode`** — `"document"` (default) uses React Router's
+  `redirectDocument`; `"router"` uses `redirect` for client-side navigation.
+  Client-side redirect destinations go through the same authorization check.
+
+With native React Router route objects, a preceding middleware can set
+`context.set(spaRouteContext, WikiRoutes.View)` using the exported
+`spaRouteContext`. Missing route identity throws a configuration error before
+requesting authorization, even when `onError` allows access.
+
+### Loader-based authorization for route objects
+
 `withRouteAuthorization` wraps each **leaf** route so a page navigation is checked
 before that leaf's loader runs. The default resolver, `spaRoutingResolver`,
 identifies each route to the server by its React Router `id` (so set one on every
 route).
 
-For the common setup, `createSpaRoutingBrowserRouter` performs the standard
-composition in one call:
-
-```tsx
-import { createSpaRoutingBrowserRouter } from "@spa-kit/react-router";
-
-const router = createSpaRoutingBrowserRouter(routes, {
-  applicationId: "app",
-  onError: { type: "redirect", location: "/500" },
-});
-```
-
-It also accepts the default resolver's `endpoint`, `routeAuthorizationOptions`
-forwarded to `withRouteAuthorization` (e.g. `redirectMode`), and `routerOptions`
-forwarded to React Router's `createBrowserRouter`:
-
-```tsx
-const router = createSpaRoutingBrowserRouter(routes, {
-  applicationId: "app",
-  endpoint: "/custom/route-decision",
-  onError: { type: "redirect", location: "/500" },
-  routeAuthorizationOptions: { redirectMode: "router" },
-  routerOptions: { basename: "/app" },
-});
-```
-
-Use the primitives directly when you need a custom resolver or another router
-flavor.
-
-The equivalent explicit composition is:
+For existing React Router route objects, compose the router and authorization
+APIs directly:
 
 ```tsx
 import { createBrowserRouter } from "react-router";
@@ -160,6 +197,10 @@ const router = createBrowserRouter(
   ),
 );
 ```
+
+Pass a custom `endpoint` to `spaRoutingResolver`, `redirectMode` in the third
+argument to `withRouteAuthorization`, and browser options such as `basename`
+in the second argument to `createBrowserRouter`.
 
 `withRouteAuthorization(routes, resolve, options?)`:
 
@@ -196,6 +237,9 @@ GET /__spa/route-decision?applicationId=app&routeId=AssetDetail&parameters.id=12
 → { "statusCode": 200 }
 → { "statusCode": 302, "location": "/login" }
 ```
+
+Path values are sent as `parameters.*`. URL query values are sent as
+`queryParameters.*`, including undeclared, empty, and repeated values.
 
 The JSON decision's integer `statusCode` determines the result: `2xx` allows
 navigation, and `3xx` redirects when `location` is a nonblank string. Other
