@@ -60,10 +60,10 @@ describe("spaRoutingResolver", () => {
     await spaRoutingResolver({ applicationId: "app", onError })({ ...callArgs, request });
 
     const query = new URL(String(fetchSpy.mock.calls[0]![0]), "http://localhost").searchParams;
-    expect(query.getAll("queryParameters.tag")).toEqual(["one", ""]);
-    expect(query.get("queryParameters.q")).toBe("a b+&雪");
-    expect(query.get("queryParameters.applicationId")).toBe("other");
-    expect(query.get("queryParameters.parameters.id")).toBe("other");
+    expect(query.getAll("queryString.tag")).toEqual(["one", ""]);
+    expect(query.get("queryString.q")).toBe("a b+&雪");
+    expect(query.get("queryString.applicationId")).toBe("other");
+    expect(query.get("queryString.parameters.id")).toBe("other");
     expect(query.get("applicationId")).toBe("app");
     expect(query.get("routeId")).toBe("AssetDetail");
     expect(query.get("parameters.id")).toBe("123");

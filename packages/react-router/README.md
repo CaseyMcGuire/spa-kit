@@ -15,8 +15,9 @@ npm install @spa-kit/react-router react react-dom react-router
 ## Typed routing from generated routes
 
 `createSpaRouter` creates a browser Data Router from spa-routing's generated
-route builders. Regenerate routes with a spa-routing version that emits
-`parse(params, searchParams)` on each builder. TypeScript 5.4+ is required.
+route builders. Parsers must return `{ params, queryString }`. Regenerate routes
+with a spa-routing version that emits `parse(params, searchParams)` on each
+builder. TypeScript 5.4+ is required.
 
 ```tsx
 import { RouterProvider } from "react-router";
@@ -28,8 +29,8 @@ const router = createSpaRouter(WikiRoutes, {
     render: () => <WikiIndex />,
   },
   View: {
-    render: (params, query) => (
-      <WikiView wikiId={params.wikiId} tab={query.tab} />
+    render: (params, queryString) => (
+      <WikiView wikiId={params.wikiId} tab={queryString.tab} />
     ),
   },
   Edit: {
@@ -43,7 +44,7 @@ export default function App() {
 ```
 
 Every generated key requires a configuration with a `render` callback. In this
-example, `params.wikiId` is `string` and `query.tab` is `string | undefined`;
+example, `params.wikiId` is `string` and `queryString.tab` is `string | undefined`;
 accessing undeclared parameters or omitting `Edit` is a compile error. Optional
 path values remain optional, and repeated queries are `readonly string[]`
 (possibly `undefined` when optional). Renderers return React content; put hooks
@@ -110,8 +111,8 @@ View: {
     console.log("Navigating to", request.url);
     await next();
   }],
-  render: (params, query) => (
-    <WikiView wikiId={params.wikiId} tab={query.tab} />
+  render: (params, queryString) => (
+    <WikiView wikiId={params.wikiId} tab={queryString.tab} />
   ),
 },
 ```
@@ -239,7 +240,7 @@ GET /__spa/route-decision?applicationId=app&routeId=AssetDetail&parameters.id=12
 ```
 
 Path values are sent as `parameters.*`. URL query values are sent as
-`queryParameters.*`, including undeclared, empty, and repeated values.
+`queryString.*`, including undeclared, empty, and repeated values.
 
 The JSON decision's integer `statusCode` determines the result: `2xx` allows
 navigation, and `3xx` redirects when `location` is a nonblank string. Other

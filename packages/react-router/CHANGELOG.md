@@ -1,5 +1,15 @@
 # @spa-kit/react-router
 
+## 0.2.0
+
+### Minor Changes
+
+- Match spa-routing's current query-string contract: generated parsers return
+  `{ params, queryString }`, and route renderers receive the inferred `queryString`
+  value as their second argument. Send decision-request query values with the
+  `queryString.*` prefix, preserving repeated and empty values. Regenerate routes
+  when upgrading; path parser `params` and decision-request `parameters.*` are unchanged.
+
 ## 0.1.0
 
 ### Minor Changes

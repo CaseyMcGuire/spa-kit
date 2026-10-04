@@ -11,7 +11,7 @@ export interface SpaRouteDefinition {
   parse(
     params: Readonly<Record<string, string | undefined>>,
     search: URLSearchParams,
-  ): { params: object; query: object } | null;
+  ): { params: object; queryString: object } | null;
 }
 
 type ParsedRoute<TRoute extends SpaRouteDefinition> = NonNullable<ReturnType<TRoute["parse"]>>;
@@ -29,7 +29,7 @@ export type SpaRouteConfig<TRoute extends SpaRouteDefinition> = Omit<
 > & {
   render: (
     params: ParsedRoute<TRoute>["params"],
-    query: ParsedRoute<TRoute>["query"],
+    queryString: ParsedRoute<TRoute>["queryString"],
   ) => ReactNode;
 };
 
@@ -99,7 +99,7 @@ function createRouteObject<TRoute extends SpaRouteDefinition>(
     // Read the current URL independently of loader data: shouldRevalidate may
     // skip loaders even when query values change. Never decode path values twice.
     const parsed = parseRoute(route, params, new URLSearchParams(location.search));
-    return <>{render(parsed.params, parsed.query)}</>;
+    return <>{render(parsed.params, parsed.queryString)}</>;
   }
 
   return {

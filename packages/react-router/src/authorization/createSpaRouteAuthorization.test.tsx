@@ -66,7 +66,7 @@ describe("createSpaRouteAuthorization", () => {
     expect(firstUrl.searchParams.get("routeId")).toBe("View");
     expect(firstUrl.searchParams.get("parameters.wikiId")).toBe("雪%2F");
     expect(firstUrl.searchParams.has("parameters.optional")).toBe(false);
-    expect(firstUrl.searchParams.get("queryParameters.tab")).toBe("history");
+    expect(firstUrl.searchParams.get("queryString.tab")).toBe("history");
     expect(fetchSpy.mock.calls[0]![1]?.signal).toBe(args.request.signal);
     const secondUrl = new URL(String(fetchSpy.mock.calls[1]![0]), "http://localhost");
     expect(secondUrl.searchParams.get("applicationId")).toBe("search");
@@ -174,8 +174,8 @@ describe("createSpaRouteAuthorization", () => {
     const authMiddleware = createSpaRouteAuthorization({ onError });
     const loader = vi.fn(() => null);
     const downstream = vi.fn<MiddlewareFunction>(async (_, next) => { await next(); });
-    const view = vi.fn((params: { wikiId: string }, query: { tab?: string }) => (
-      <p>Wiki {params.wikiId}: {query.tab}</p>
+    const view = vi.fn((params: { wikiId: string }, queryString: { tab?: string }) => (
+      <p>Wiki {params.wikiId}: {queryString.tab}</p>
     ));
     mountRouter(createSpaRouter(WikiRoutes, {
       Index: { render: () => "index" },
@@ -220,13 +220,13 @@ describe("createSpaRouteAuthorization", () => {
       ["wiki", "Index"], ["wiki", "View"], ["wiki", "Edit"], ["search", "Search"], ["search", "Search"],
     ]);
     expect(queries[1]!.get("parameters.wikiId")).toBe("雪/%25");
-    expect(queries[1]!.get("queryParameters.tab")).toBe("a b+&");
+    expect(queries[1]!.get("queryString.tab")).toBe("a b+&");
     expect(queries[2]!.get("parameters.wikiId")).toBe("42");
     expect(queries[3]!.get("parameters.category")).toBe("books");
-    expect(queries[3]!.getAll("queryParameters.tag")).toEqual(["one", "two"]);
-    expect(queries[3]!.get("queryParameters.extra")).toBe("kept");
+    expect(queries[3]!.getAll("queryString.tag")).toEqual(["one", "two"]);
+    expect(queries[3]!.get("queryString.extra")).toBe("kept");
     expect(queries[4]!.has("parameters.category")).toBe(false);
-    expect(queries[4]!.get("queryParameters.q")).toBe("");
+    expect(queries[4]!.get("queryString.q")).toBe("");
     expect(router.state.location.pathname).toBe("/app/search");
   });
 
@@ -275,7 +275,7 @@ describe("createSpaRouteAuthorization", () => {
     expect(view).not.toHaveBeenCalled();
     expect(fetchSpy).toHaveBeenCalledTimes(3);
     const query = new URL(String(fetchSpy.mock.calls[1]![0]), "http://localhost").searchParams;
-    expect(query.get("queryParameters.tab")).toBe("history");
+    expect(query.get("queryString.tab")).toBe("history");
     const redirectQuery = new URL(String(fetchSpy.mock.calls[2]![0]), "http://localhost").searchParams;
     expect(redirectQuery.get("routeId")).toBe("Index");
   });
@@ -311,7 +311,7 @@ describe("createSpaRouteAuthorization", () => {
     const query = new URL(String(fetchSpy.mock.calls[1]![0]), "http://localhost").searchParams;
     expect(query.get("routeId")).toBe("View");
     expect(query.get("parameters.wikiId")).toBe("42");
-    expect(query.get("queryParameters.tab")).toBe("history");
+    expect(query.get("queryString.tab")).toBe("history");
   });
 
   it("blocks submitted actions when authorization is denied", async () => {

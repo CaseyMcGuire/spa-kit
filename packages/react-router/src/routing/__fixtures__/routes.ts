@@ -6,11 +6,11 @@ export const WikiRoutes = {
     path: "/wiki",
     applicationId: "wiki",
     routeId: "Index",
-    parse: (_params: RawParams, _search: URLSearchParams) => ({ params: {}, query: {} }),
+    parse: (_params: RawParams, _search: URLSearchParams) => ({ params: {}, queryString: {} }),
   }),
   View: Object.assign(
-    (params: { wikiId: string }, query: { tab?: string } = {}) => {
-      const search = new URLSearchParams(query).toString();
+    (params: { wikiId: string }, queryString: { tab?: string } = {}) => {
+      const search = new URLSearchParams(queryString).toString();
       return `/wiki/${encodeURIComponent(params.wikiId)}${search ? `?${search}` : ""}`;
     },
     {
@@ -19,7 +19,7 @@ export const WikiRoutes = {
       routeId: "View",
       parse(params: RawParams, search: URLSearchParams): {
         params: { wikiId: string };
-        query: { tab?: string };
+        queryString: { tab?: string };
       } | null {
         const tabs = search.getAll("tab");
         if (params.wikiId === undefined || tabs.length > 1) {
@@ -27,7 +27,7 @@ export const WikiRoutes = {
         }
         return {
           params: { wikiId: params.wikiId },
-          query: tabs.length === 0 ? {} : { tab: tabs[0]! },
+          queryString: tabs.length === 0 ? {} : { tab: tabs[0]! },
         };
       },
     },
@@ -38,9 +38,9 @@ export const WikiRoutes = {
     routeId: "Edit",
     parse(params: RawParams, _search: URLSearchParams): {
       params: { wikiId: string };
-      query: {};
+      queryString: {};
     } | null {
-      return params.wikiId === undefined ? null : { params: { wikiId: params.wikiId }, query: {} };
+      return params.wikiId === undefined ? null : { params: { wikiId: params.wikiId }, queryString: {} };
     },
   }),
 } as const;
@@ -52,7 +52,7 @@ export const SearchRoutes = {
     routeId: "Search",
     parse(params: RawParams, search: URLSearchParams): {
       params: { category?: string };
-      query: { q: string; tag?: readonly string[] };
+      queryString: { q: string; tag?: readonly string[] };
     } | null {
       const queries = search.getAll("q");
       if (queries.length !== 1) {
@@ -60,7 +60,7 @@ export const SearchRoutes = {
       }
       return {
         params: params.category === undefined ? {} : { category: params.category },
-        query: {
+        queryString: {
           q: queries[0]!,
           ...(search.has("tag") ? { tag: search.getAll("tag") } : {}),
         },

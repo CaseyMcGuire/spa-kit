@@ -39,7 +39,7 @@ function LoaderView() {
 const wikiConfig = {
   Index: { render: () => "index", hydrateFallbackElement: <p>Loading</p> },
   View: {
-    render: (params, query) => <p>{params.wikiId}: {query.tab ?? "default"}</p>,
+    render: (params, queryString) => <p>{params.wikiId}: {queryString.tab ?? "default"}</p>,
     errorElement: <RouteError />,
     hydrateFallbackElement: <p>Loading</p>,
   },
@@ -117,7 +117,7 @@ describe("createSpaRouter", () => {
 
   it("passes required/repeated queries and optional path values from the parser", async () => {
     window.history.replaceState(null, "", "/search?q=hello&tag=one&tag=two");
-    const view = vi.fn((params, query) => JSON.stringify({ params, query }));
+    const view = vi.fn((params, queryString) => JSON.stringify({ params, queryString }));
     const router = createSpaRouter(SearchRoutes, {
       Search: { render: view, hydrateFallbackElement: <p>Loading</p> },
     });
@@ -329,22 +329,22 @@ function verifyRendererTypes() {
   });
 
   createSpaRouter(WikiRoutes, {
-    Index: { render: (params, query) => {
+    Index: { render: (params, queryString) => {
       // @ts-expect-error Index has no declared path parameters.
       params.wikiId;
       // @ts-expect-error Index has no declared query parameters.
-      query.tab;
+      queryString.tab;
       return "index";
     } },
-    View: { render: (params, query) => {
+    View: { render: (params, queryString) => {
       const wikiId: string = params.wikiId;
-      const tab: string | undefined = query.tab;
+      const tab: string | undefined = queryString.tab;
       // @ts-expect-error Only declared path parameters are available.
       params.unknown;
       // @ts-expect-error Only declared query parameters are available.
-      query.unknown;
+      queryString.unknown;
       // @ts-expect-error An optional query is not guaranteed to be present.
-      const requiredTab: string = query.tab;
+      const requiredTab: string = queryString.tab;
       return <p>{wikiId}: {tab}</p>;
     } },
     Edit: { render: (params) => {
@@ -376,14 +376,14 @@ function verifyRendererTypes() {
     View: { ...wikiConfig.View, path: "/different" },
   });
   createSpaRouter(SearchRoutes, {
-    Search: { render: (params, query) => {
+    Search: { render: (params, queryString) => {
       const category: string | undefined = params.category;
-      const q: string = query.q;
-      const tags: readonly string[] | undefined = query.tag;
+      const q: string = queryString.q;
+      const tags: readonly string[] | undefined = queryString.tag;
       // @ts-expect-error Optional path parameters may be absent.
       const requiredCategory: string = params.category;
       // @ts-expect-error Repeated query values are lists, not scalars.
-      const tag: string = query.tag;
+      const tag: string = queryString.tag;
       return <p>{category} {q} {tags?.join(",")}</p>;
     } },
   });
