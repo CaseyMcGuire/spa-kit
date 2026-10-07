@@ -1,11 +1,10 @@
 {
-  "name": "@spa-kit/react-router",
-  "version": "0.3.0",
-  "description": "Server-authorized client navigation for React Router",
+  "name": "@spa-kit/eslint-plugin",
+  "version": "0.1.0",
+  "description": "Opt-in ESLint rules for spa-kit applications",
   "author": "Casey McGuire",
   "license": "MIT",
   "type": "module",
-  "sideEffects": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -22,14 +21,18 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "clean": "rm -rf dist *.tsbuildinfo",
     "typecheck": "tsc --noEmit",
     "typecheck:test": "tsc --project tsconfig.test.json"
   },
   "peerDependencies": {
-    "react": ">=18",
-    "react-dom": ">=18",
-    "react-router": ">=7.9.3"
+    "eslint": "^9.0.0 || ^10.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^10.12.0",
+    "@typescript-eslint/parser": "^8.71.1"
+  },
+  "engines": {
+    "node": ">=18.18.0"
   },
   "publishConfig": {
     "access": "public"

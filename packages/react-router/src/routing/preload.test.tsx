@@ -3,6 +3,8 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { RouterProvider, redirect } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSpaRouter } from "./createSpaRouter.js";
+import type { IndexContext, ViewContext, EditContext, SearchContext } from "./__fixtures__/routes.js";
+import type { SpaRouteContext } from "./createSpaRouter.js";
 import { WikiRoutes, SearchRoutes } from "./__fixtures__/routes.js";
 import { createSpaRouteDecisionMiddleware } from "../authorization/createSpaRouteDecisionMiddleware.js";
 
@@ -173,7 +175,7 @@ describe("route preload", () => {
     const loader = vi.fn(() => null);
     const router = createSpaRouter({ View: { ...routes.View, hasAccessHandler: false } }, {
       View: {
-        preload: ({ queryString }) => {
+        preload: ({ queryString }: ViewContext) => {
           const resource = { tab: queryString.tab, dispose: vi.fn() };
           resources.push(resource);
           return resource;
@@ -215,10 +217,10 @@ function verifyPreloadTypes() {
       return "index";
     } },
     View: {
-      preload: ({ params, queryString }) => {
+      preload: ({ params, queryString }: ViewContext) => {
         const id: string = params.wikiId;
         const tab: string | undefined = queryString.tab;
-        return { kind: "wiki" as const, id, tab, dispose() {} };
+        return { kind: "wiki" as const, id, tab, dispose: () => {} };
       },
       render: ({ params, queryString, preload }) => {
         const kind: "wiki" = preload.kind;
@@ -236,7 +238,7 @@ function verifyPreloadTypes() {
       return number;
     } },
     Search: {
-      preload: ({ params, queryString }) => ({ kind: "search" as const, q: queryString.q, category: params.category }),
+      preload: ({ params, queryString }: SearchContext) => ({ kind: "search" as const, q: queryString.q, category: params.category }),
       render: ({ preload }) => {
         const kind: "search" = preload.kind;
         const q: string = preload.q;
@@ -246,4 +248,37 @@ function verifyPreloadTypes() {
       },
     },
   });
+}
+
+// Check both property orders and preserve opaque identity, even when public shapes match.
+function verifyGeneratedContexts() {
+  createSpaRouter({ View: WikiRoutes.View }, {
+    View: {
+      render: (context) => {
+        const generated: ViewContext = context;
+        const resource: { id: string } = context.preload;
+        // @ts-expect-error Same-shaped route parameters do not make contexts interchangeable.
+        const wrongRoute: EditContext = context;
+        return resource.id + generated.params.wikiId;
+      },
+      preload: ({ params }: ViewContext) => ({ id: params.wikiId }),
+    },
+  });
+  createSpaRouter({ Index: WikiRoutes.Index }, {
+    Index: { render: (context) => {
+      const generated: IndexContext = context;
+      // @ts-expect-error Non-preloading routes do not acquire a preload property.
+      context.preload;
+      return "index";
+    } },
+  });
+  createSpaRouter({ View: WikiRoutes.View }, {
+    View: {
+      // @ts-expect-error An Edit context cannot annotate a View preload.
+      preload: ({ params }: EditContext) => params.wikiId,
+      render: () => null,
+    },
+  });
+  // @ts-expect-error The router context must preserve the generator's opaque brand.
+  const unbranded: SpaRouteContext<typeof WikiRoutes.View> = { params: { wikiId: "42" }, queryString: {} };
 }

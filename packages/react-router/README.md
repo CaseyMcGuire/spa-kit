@@ -29,12 +29,12 @@ const router = createSpaRouter(WikiRoutes, {
     render: () => <WikiIndex />,
   },
   View: {
-    render: (params, queryString) => (
+    render: ({ params, queryString }) => (
       <WikiView wikiId={params.wikiId} tab={queryString.tab} />
     ),
   },
   Edit: {
-    render: (params) => <WikiEditor wikiId={params.wikiId} />,
+    render: ({ params }) => <WikiEditor wikiId={params.wikiId} />,
   },
 });
 
@@ -93,9 +93,10 @@ const router = createSpaRouter(WikiRoutes, routeConfig, {
 Here, `authMiddleware` is a separately supplied React Router middleware function.
 Omit `sharedMiddleware` when no shared behavior is needed. Shared middleware uses
 React Router's native arguments, including `request`, `params`, and `context`;
-only `render` receives generated parameter and query types.
+`preload` and `render` receive the generated context.
 
-Execution order is parameter validation, shared middleware in array order,
+Execution order is parameter validation, optional speculative preload startup,
+shared middleware in array order,
 route-specific middleware in array order, then the loader or action. Code after
 `await next()` runs in reverse order. Shared middleware also runs on initial
 navigation without loaders and on query-only navigations that skip loader
@@ -111,11 +112,61 @@ View: {
     console.log("Navigating to", request.url);
     await next();
   }],
-  render: (params, queryString) => (
+  render: ({ params, queryString }) => (
     <WikiView wikiId={params.wikiId} tab={queryString.tab} />
   ),
 },
 ```
+
+### Typed preload
+
+A route may start speculative work before the route decision finishes. Use the
+context alias emitted by spa-routing 0.5.0 on the preload's input parameter:
+
+```tsx
+import { WikiRoutes } from "./generated/WikiRoutes";
+import type { ViewContext } from "./generated/WikiRoutes";
+
+const router = createSpaRouter(WikiRoutes, {
+  Index: { render: () => <WikiIndex /> },
+  View: {
+    preload: ({ params }: ViewContext) =>
+      loadQuery(environment, ViewWikiPageQuery, { wikiId: params.wikiId }),
+    render: ({ params, queryString, preload }) => (
+      <ViewWikiPage wikiId={params.wikiId} queryRef={preload} />
+    ),
+  },
+  Edit: { render: ({ params }) => <WikiEditor wikiId={params.wikiId} /> },
+}, { sharedMiddleware: [decisionMiddleware] });
+```
+
+`loadQuery`, the Relay environment, and the query document above are supplied by
+the application. The router has no Relay dependency. Each preload's return type
+is inferred independently and passed unchanged to its renderer. A route without
+preload has no `preload` property in its render context. Zero-argument preloads
+need no parameter annotation.
+
+The explicit input annotation allows TypeScript to infer the sibling renderer's
+resource type without a per-route wrapper or an explicit resource generic. Both
+`preload`-first and `render`-first property order work with that annotation. The
+router preserves the complete parser result, including the generated context's
+compile-time route identity, so another route's context is not interchangeable.
+
+Enable `@spa-kit/require-preload-context` from
+[`@spa-kit/eslint-plugin`](../eslint-plugin) to catch missing input annotations.
+TypeScript validates that the annotation matches the generated route.
+
+Preload completion never blocks navigation, including when its value is a
+promise. A gated route waits for its decision before downstream middleware and
+loaders run; its preload is already in flight during that wait. Ungated routes
+skip the decision request. Rendered components may use Suspense for pending data.
+
+Disposable preload values are released on failed, redirected, aborted, or
+superseded navigations, and when a committed replacement no longer retains them.
+The currently active value is retained while a replacement decision is pending.
+Late promise results are also disposed if their navigation was abandoned.
+Navigation GETs (including initial navigation and revalidation) preload; fetcher
+requests and action submissions do not start a page preload themselves.
 
 Run the router's runtime and compiler tests with:
 

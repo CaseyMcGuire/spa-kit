@@ -10,6 +10,7 @@ A monorepo of reusable React components and utility functions shared across proj
 | [`@spa-kit/react`](./packages/react) | React components and hooks |
 | [`@spa-kit/react-relay`](./packages/react-relay) | Reusable Relay helpers for React |
 | [`@spa-kit/react-router`](./packages/react-router) | Server-authorized navigation + progress bar for React Router |
+| [`@spa-kit/eslint-plugin`](./packages/eslint-plugin) | Opt-in lint rules for spa-kit applications |
 | [`@spa-kit/node`](./packages/node) | Node-side (build/server) helpers, e.g. GraphQL schema combining |
 
 ## Tooling

@@ -2,6 +2,7 @@ export { createSpaRouter } from "./routing/createSpaRouter.js";
 export type {
   SpaRouteDefinition,
   SpaRouteConfig,
+  SpaRouteContext,
   SpaRouterConfig,
   CreateSpaRouterOptions,
 } from "./routing/createSpaRouter.js";

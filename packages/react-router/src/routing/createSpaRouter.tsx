@@ -19,15 +19,16 @@ export interface SpaRouteDefinition {
 
 type ParsedRoute<TRoute extends SpaRouteDefinition> = NonNullable<ReturnType<TRoute["parse"]>>;
 
+/** Full generated parser result, including its compile-time route identity. */
+export type SpaRouteContext<TRoute extends SpaRouteDefinition> = ParsedRoute<TRoute>;
+
 /**
  * Configure a generated route's renderer and native React Router behavior.
  * Paths and IDs come from the generated definition. Routes are flat; rendering
  * is supplied by `render`, so `children`, `index`, and `lazy` are not supported.
- * Only `render` receives the generated types; loaders/actions/middleware retain
+ * `preload` and `render` receive the generated context; loaders/actions/middleware retain
  * their native React Router signatures.
  */
-export type SpaRouteContext<TRoute extends SpaRouteDefinition> = Pick<ParsedRoute<TRoute>, "params" | "queryString">;
-
 export type SpaRouteConfig<TRoute extends SpaRouteDefinition, TPreload = never> = Omit<
   NonIndexRouteObject,
   "id" | "path" | "index" | "children" | "element" | "Component" | "lazy"

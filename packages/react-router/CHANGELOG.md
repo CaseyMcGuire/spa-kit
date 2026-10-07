@@ -1,5 +1,35 @@
 # @spa-kit/react-router
 
+## 0.3.0
+
+### Minor Changes
+
+- 78cbb31: Require generated `hasAccessHandler` metadata for shared route authorization.
+  Routes without access handlers skip the decision endpoint; application-level
+  access is assumed to have been established by the initial full-page load.
+
+  Consume semantic `allowed`, `denied`, `unknown_route`, and `invalid_request`
+  route decisions. Failure destinations always redirect, independently of the
+  transport-error fallback. Legacy status-code decision bodies are unsupported.
+  Regenerate route builders before upgrading.
+
+  Resolvers, middleware, and `onError` fallbacks now share the semantic decision
+  union. Replace `allow` with `allowed`, and `redirect`/`location` with a failure
+  type (`denied`, `unknown_route`, or `invalid_request`) and `destination`.
+
+  Rename `createSpaRouteAuthorization` to `createSpaRouteDecisionMiddleware` and
+  `CreateSpaRouteAuthorizationOptions` to `CreateSpaRouteDecisionMiddlewareOptions`.
+  The old exports are removed.
+
+- Preserve the full generated parser context, including spa-routing 0.5.0's opaque
+  route identity. Export `SpaRouteContext` and document generated context aliases on
+  preload inputs, with independently inferred render resources.
+
+  Add the opt-in `@spa-kit/require-preload-context` ESLint rule in the separate
+  `@spa-kit/eslint-plugin` package. Require a parameter annotation for route preloads
+  with inputs, while allowing zero-argument preloads. Support named and namespace
+  imports, import aliases, and local immutable configurations and callbacks.
+
 ## 0.2.0
 
 ### Minor Changes
