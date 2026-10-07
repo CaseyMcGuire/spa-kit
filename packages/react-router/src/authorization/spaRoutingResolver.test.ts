@@ -9,7 +9,7 @@ const callArgs = {
   request: new Request("http://localhost/assets/123"),
 };
 
-const onError = { type: "allow" } as const;
+const onError = { type: "allowed" } as const;
 
 // jsdom's AbortSignal and the Request global live in different realms, so an
 // aborted signal can't be passed through RequestInit; shadow the getter instead.
@@ -27,11 +27,11 @@ describe("spaRoutingResolver", () => {
   it("queries the decision endpoint with applicationId, the route's id and params", async () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response(JSON.stringify({ statusCode: 200 })));
+      .mockResolvedValue(new Response(JSON.stringify({ type: "allowed" })));
 
     const decision = await spaRoutingResolver({ applicationId: "app", onError })(callArgs);
 
-    expect(decision).toEqual({ type: "allow" });
+    expect(decision).toEqual({ type: "allowed" });
     const url = String(fetchSpy.mock.calls[0]![0]);
     expect(url).toContain("/__spa/route-decision?");
     expect(url).toContain("applicationId=app");
@@ -39,19 +39,19 @@ describe("spaRoutingResolver", () => {
     expect(url).toContain("parameters.id=123");
   });
 
-  it("maps a 3xx + location to a redirect decision", async () => {
+  it.each(["denied", "unknown_route", "invalid_request"])("redirects a %s decision even with an allow fallback", async (type) => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ statusCode: 302, location: "/login" })),
+      new Response(JSON.stringify({ type, destination: "/login" })),
     );
     await expect(spaRoutingResolver({ applicationId: "app", onError })(callArgs)).resolves.toEqual({
-      type: "redirect",
-      location: "/login",
+      type,
+      destination: "/login",
     });
   });
 
   it("forwards repeated, empty, and encoded query values without colliding with route metadata", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ statusCode: 200 })),
+      new Response(JSON.stringify({ type: "allowed" })),
     );
     const request = new Request(
       "http://localhost/assets/123?tag=one&tag=&q=a+b%2B%26%E9%9B%AA&applicationId=other&parameters.id=other",
@@ -70,69 +70,25 @@ describe("spaRoutingResolver", () => {
     expect(fetchSpy.mock.calls[0]![1]?.signal).toBe(request.signal);
   });
 
-  it.each([200, 204, 299])("allows a successful %i decision", async (statusCode) => {
+  it("allows a semantic decision with a redirect fallback", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ statusCode, location: null })),
+      new Response(JSON.stringify({ type: "allowed" })),
     );
-
-    await expect(
-      spaRoutingResolver({
-        applicationId: "app",
-        onError: { type: "redirect", location: "/error" },
-      })(callArgs),
-    ).resolves.toEqual({ type: "allow" });
+    await expect(spaRoutingResolver({
+      applicationId: "app", onError: { type: "denied", destination: "/error" },
+    })(callArgs)).resolves.toEqual({ type: "allowed" });
   });
-
-  it.each([199, 400, 403, 404, 500, 600])(
-    "returns onError for a %i decision inside an HTTP 200 response",
-    async (statusCode) => {
-      const fallback = { type: "redirect", location: "/error" } as const;
-      vi.spyOn(globalThis, "fetch").mockResolvedValue(
-        new Response(JSON.stringify({ statusCode })),
-      );
-
-      await expect(
-        spaRoutingResolver({ applicationId: "app", onError: fallback })(callArgs),
-      ).resolves.toEqual(fallback);
-    },
-  );
 
   it.each([
-    null,
-    [],
-    "allow",
-    {},
-    { location: "/login" },
-    { statusCode: null },
-    { statusCode: "200" },
-    { statusCode: 200.5 },
-    { statusCode: 200, location: 123 },
-    { statusCode: 200, location: {} },
-    { statusCode: "302", location: "/login" },
-    { statusCode: 302.5, location: "/login" },
-    { statusCode: 302 },
-    { statusCode: 302, location: null },
-    { statusCode: 302, location: "" },
-    { statusCode: 302, location: "   " },
-    { statusCode: 302, location: 123 },
-    { statusCode: 302, location: {} },
-  ].map((body) => [body]))("returns onError for a malformed decision: %j", async (body) => {
-    const fallback = { type: "redirect", location: "/error" } as const;
+    null, [], "allowed", {}, { type: "allow" }, { type: "unknown" },
+    { statusCode: 200 }, { statusCode: 302, location: "/login" },
+    ...["denied", "unknown_route", "invalid_request"].flatMap((type) =>
+      [undefined, null, "", "   ", 123, {}].map((destination) => ({ type, destination }))),
+  ].map((body) => [body]))("returns onError for a malformed or legacy decision: %j", async (body) => {
+    const fallback = { type: "denied", destination: "/error" } as const;
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify(body)));
-
-    await expect(
-      spaRoutingResolver({ applicationId: "app", onError: fallback })(callArgs),
-    ).resolves.toEqual(fallback);
-  });
-
-  it("honors an explicit allow fallback for an unsuccessful decision", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ statusCode: 403 })),
-    );
-
-    await expect(spaRoutingResolver({ applicationId: "app", onError })(callArgs)).resolves.toEqual(
-      onError,
-    );
+    await expect(spaRoutingResolver({ applicationId: "app", onError: fallback })(callArgs))
+      .resolves.toEqual(fallback);
   });
 
   it("throws when the route has no id", async () => {
@@ -143,7 +99,7 @@ describe("spaRoutingResolver", () => {
   });
 
   it("returns onError for a non-2xx response even when its body is valid JSON", async () => {
-    const onErrorRedirect = { type: "redirect", location: "/error" } as const;
+    const onErrorRedirect = { type: "denied", destination: "/error" } as const;
     const resolver = spaRoutingResolver({ applicationId: "app", onError: onErrorRedirect });
 
     vi.spyOn(globalThis, "fetch")
@@ -167,7 +123,7 @@ describe("spaRoutingResolver", () => {
     await expect(
       spaRoutingResolver({
         applicationId: "app",
-        onError: { type: "redirect", location: "/error" },
+        onError: { type: "denied", destination: "/error" },
       })(aborted),
     ).rejects.toBe(abortError);
   });
@@ -176,14 +132,14 @@ describe("spaRoutingResolver", () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network"));
 
     await expect(
-      spaRoutingResolver({ applicationId: "app", onError: { type: "allow" } })(callArgs),
-    ).resolves.toEqual({ type: "allow" });
+      spaRoutingResolver({ applicationId: "app", onError: { type: "allowed" } })(callArgs),
+    ).resolves.toEqual({ type: "allowed" });
 
     await expect(
       spaRoutingResolver({
         applicationId: "app",
-        onError: { type: "redirect", location: "/login" },
+        onError: { type: "denied", destination: "/login" },
       })(callArgs),
-    ).resolves.toEqual({ type: "redirect", location: "/login" });
+    ).resolves.toEqual({ type: "denied", destination: "/login" });
   });
 });

@@ -8,22 +8,8 @@ export interface SpaRoutingResolverOptions {
   applicationId: string;
   /** Decision endpoint. @default "/__spa/route-decision" */
   endpoint?: string;
-  /**
-   * The decision to apply when the request fails, the body is malformed, or
-   * the returned statusCode is neither a 2xx success nor a valid 3xx redirect.
-   * Required — rather than silently allowing or throwing, you choose:
-   * `{ type: "allow" }` to let navigation proceed even for denial/error
-   * decisions (data is still gated server-side), or
-   * `{ type: "redirect", location }` to send the user somewhere
-   * (e.g. an error or login page).
-   */
+  /** Fallback for transport failures or malformed responses, never valid server denials. */
   onError: RouteAuthorizationDecision;
-}
-
-/** JSON contract of the spa-routing decision endpoint. */
-interface RouteDecisionResponse {
-  statusCode: number;
-  location?: string | null;
 }
 
 /**
@@ -31,9 +17,8 @@ interface RouteDecisionResponse {
  * endpoint (`/__spa/route-decision`) whether a route is allowed, using the
  * route's `id` as the server route id and sending its path params
  * (`parameters.*`) and URL query values (`queryString.*`, preserving repeats).
- * An integer `2xx` statusCode allows navigation; an integer
- * `3xx` with a nonblank string `location` redirects. Other decisions return
- * `onError`, including denial/error statuses and malformed bodies.
+ * Semantic `allowed` decisions allow navigation. `denied`, `unknown_route`, and
+ * `invalid_request` decisions redirect to their nonblank `destination`.
  *
  * Throws if the route has no `id` — a route can't be authorized without one. If
  * the request fails (network error, non-2xx response, or malformed body),
@@ -77,7 +62,7 @@ export function spaRoutingResolver(options: SpaRoutingResolverOptions): RouteAut
         return onError;
       }
 
-      return toRouteAuthorizationDecision(body) ?? onError;
+      return body;
     } catch (error) {
       // An aborted navigation is not a failed decision: rethrow so React
       // Router discards the superseded load instead of applying `onError`.
@@ -89,36 +74,20 @@ export function spaRoutingResolver(options: SpaRoutingResolverOptions): RouteAut
   };
 }
 
-function isRouteDecisionResponse(body: unknown): body is RouteDecisionResponse {
+function isRouteDecisionResponse(body: unknown): body is RouteAuthorizationDecision {
   if (body == null || typeof body !== "object") {
     return false;
   }
 
-  const { statusCode, location } = body as Record<string, unknown>;
-  return (
-    typeof statusCode === "number" &&
-    Number.isInteger(statusCode) &&
-    (location == null || typeof location === "string")
-  );
-}
-
-/** Map supported decisions; return undefined when the caller must apply its fallback. */
-function toRouteAuthorizationDecision({
-  statusCode,
-  location,
-}: RouteDecisionResponse): RouteAuthorizationDecision | undefined {
-  if (statusCode >= 200 && statusCode < 300) {
-    return { type: "allow" };
+  const { type, destination } = body as Record<string, unknown>;
+  switch (type) {
+    case "allowed":
+      return true;
+    case "denied":
+    case "unknown_route":
+    case "invalid_request":
+      return typeof destination === "string" && destination.trim().length > 0;
+    default:
+      return false;
   }
-
-  if (
-    statusCode >= 300 &&
-    statusCode < 400 &&
-    location != null &&
-    location.trim().length > 0
-  ) {
-    return { type: "redirect", location };
-  }
-
-  return undefined;
 }

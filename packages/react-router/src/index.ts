@@ -7,8 +7,8 @@ export type {
 } from "./routing/createSpaRouter.js";
 export { spaRouteContext } from "./routing/spaRouteContext.js";
 export type { SpaRouteIdentity } from "./routing/spaRouteContext.js";
-export { createSpaRouteAuthorization } from "./authorization/createSpaRouteAuthorization.js";
-export type { CreateSpaRouteAuthorizationOptions } from "./authorization/createSpaRouteAuthorization.js";
+export { createSpaRouteDecisionMiddleware } from "./authorization/createSpaRouteDecisionMiddleware.js";
+export type { CreateSpaRouteDecisionMiddlewareOptions } from "./authorization/createSpaRouteDecisionMiddleware.js";
 export { withRouteAuthorization } from "./authorization/withRouteAuthorization.js";
 export type {
   RouteAuthorizationDecision,

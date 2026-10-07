@@ -1,4 +1,4 @@
-import { redirect, redirectDocument } from "react-router";
+import { routeAuthorizationRedirect } from "./routeAuthorizationRedirect.js";
 import type { MiddlewareFunction } from "react-router";
 import { spaRouteContext } from "../routing/spaRouteContext.js";
 import { spaRoutingResolver } from "./spaRoutingResolver.js";
@@ -6,13 +6,16 @@ import type { SpaRoutingResolverOptions } from "./spaRoutingResolver.js";
 import type { RouteAuthorizationOptions } from "./withRouteAuthorization.js";
 
 /** Shared endpoint, fallback decision, and redirect mode for route middleware. */
-export interface CreateSpaRouteAuthorizationOptions
+export interface CreateSpaRouteDecisionMiddlewareOptions
   extends Omit<SpaRoutingResolverOptions, "applicationId">, RouteAuthorizationOptions {}
 
 /**
- * Create native React Router authorization middleware for shared registration.
+ * Create native React Router route-decision middleware for shared registration.
  * Reads the matched generated route's applicationId/routeId from spaRouteContext,
  * supplied automatically by `createSpaRouter` before shared middleware runs.
+ *
+ * Skips the endpoint when generated `hasAccessHandler` is false. Application
+ * access is assumed to have been established by the full-page app load.
  *
  * Uses `spaRoutingResolver` to send matched path params and all query values
  * (including repeated values) to the decision endpoint. An allow decision runs
@@ -30,15 +33,15 @@ export interface CreateSpaRouteAuthorizationOptions
  * authorization; it does not use the endpoint's `onError` fallback.
  *
  * @example
- * const authMiddleware = createSpaRouteAuthorization({
- *   onError: { type: "redirect", location: "/error" },
+ * const authMiddleware = createSpaRouteDecisionMiddleware({
+ *   onError: { type: "denied", destination: "/error" },
  * });
  * const router = createSpaRouter(WikiRoutes, routeConfig, {
  *   sharedMiddleware: [authMiddleware],
  * });
  */
-export function createSpaRouteAuthorization(
-  options: CreateSpaRouteAuthorizationOptions,
+export function createSpaRouteDecisionMiddleware(
+  options: CreateSpaRouteDecisionMiddlewareOptions,
 ): MiddlewareFunction {
   const { redirectMode = "document", ...resolverOptions } = options;
 
@@ -48,9 +51,16 @@ export function createSpaRouteAuthorization(
     const route = context.get(spaRouteContext);
     if (route === null) {
       throw new Error(
-        "createSpaRouteAuthorization: missing route identity. Use createSpaRouter " +
+        "createSpaRouteDecisionMiddleware: missing route identity. Use createSpaRouter " +
         "or set spaRouteContext before running authorization middleware.",
       );
+    }
+    if (typeof route.hasAccessHandler !== "boolean") {
+      throw new Error("createSpaRouteDecisionMiddleware: missing hasAccessHandler metadata. Regenerate routes.");
+    }
+    if (!route.hasAccessHandler) {
+      await next();
+      return;
     }
     const resolve = spaRoutingResolver({ ...resolverOptions, applicationId: route.applicationId });
 
@@ -67,13 +77,13 @@ export function createSpaRouteAuthorization(
     request.signal.throwIfAborted();
 
     switch (decision.type) {
-      case "allow":
+      case "allowed":
         await next();
         return;
-      case "redirect":
-        throw redirectMode === "document"
-          ? redirectDocument(decision.location)
-          : redirect(decision.location);
+      case "denied":
+      case "unknown_route":
+      case "invalid_request":
+        throw routeAuthorizationRedirect(decision.destination, redirectMode);
     }
   };
 }

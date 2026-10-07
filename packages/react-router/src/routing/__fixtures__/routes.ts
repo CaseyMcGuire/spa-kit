@@ -6,6 +6,7 @@ export const WikiRoutes = {
     path: "/wiki",
     applicationId: "wiki",
     routeId: "Index",
+    hasAccessHandler: true,
     parse: (_params: RawParams, _search: URLSearchParams) => ({ params: {}, queryString: {} }),
   }),
   View: Object.assign(
@@ -17,6 +18,7 @@ export const WikiRoutes = {
       path: "/wiki/:wikiId",
       applicationId: "wiki",
       routeId: "View",
+      hasAccessHandler: true,
       parse(params: RawParams, search: URLSearchParams): {
         params: { wikiId: string };
         queryString: { tab?: string };
@@ -36,6 +38,7 @@ export const WikiRoutes = {
     path: "/wiki/:wikiId/edit",
     applicationId: "wiki",
     routeId: "Edit",
+    hasAccessHandler: true,
     parse(params: RawParams, _search: URLSearchParams): {
       params: { wikiId: string };
       queryString: {};
@@ -50,6 +53,7 @@ export const SearchRoutes = {
     path: "/search/:category?",
     applicationId: "search",
     routeId: "Search",
+    hasAccessHandler: true,
     parse(params: RawParams, search: URLSearchParams): {
       params: { category?: string };
       queryString: { q: string; tag?: readonly string[] };

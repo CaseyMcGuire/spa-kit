@@ -39,11 +39,11 @@ function LoaderView() {
 const wikiConfig = {
   Index: { render: () => "index", hydrateFallbackElement: <p>Loading</p> },
   View: {
-    render: (params, queryString) => <p>{params.wikiId}: {queryString.tab ?? "default"}</p>,
+    render: ({ params, queryString }) => <p>{params.wikiId}: {queryString.tab ?? "default"}</p>,
     errorElement: <RouteError />,
     hydrateFallbackElement: <p>Loading</p>,
   },
-  Edit: { render: (params) => <p>Edit {params.wikiId}</p>, hydrateFallbackElement: <p>Loading</p> },
+  Edit: { render: ({ params }) => <p>Edit {params.wikiId}</p>, hydrateFallbackElement: <p>Loading</p> },
 } satisfies SpaRouterConfig<typeof WikiRoutes>;
 
 describe("createSpaRouter", () => {
@@ -58,7 +58,7 @@ describe("createSpaRouter", () => {
     mountRouter(router);
 
     expect(await screen.findByText("42: a b+&雪")).toBeInTheDocument();
-    expect(view).toHaveBeenLastCalledWith({ wikiId: "42" }, { tab: "a b+&雪" });
+    expect(view).toHaveBeenLastCalledWith({ params: { wikiId: "42" }, queryString: { tab: "a b+&雪" } });
     expect(router.basename).toBe("/app");
     expect(router.routes.map(({ id, path }) => ({ id, path }))).toEqual([
       { id: "Index", path: "/wiki" },
@@ -117,15 +117,15 @@ describe("createSpaRouter", () => {
 
   it("passes required/repeated queries and optional path values from the parser", async () => {
     window.history.replaceState(null, "", "/search?q=hello&tag=one&tag=two");
-    const view = vi.fn((params, queryString) => JSON.stringify({ params, queryString }));
+    const view = vi.fn(({ params, queryString }) => JSON.stringify({ params, queryString }));
     const router = createSpaRouter(SearchRoutes, {
       Search: { render: view, hydrateFallbackElement: <p>Loading</p> },
     });
     mountRouter(router);
 
-    await waitFor(() => expect(view).toHaveBeenCalledWith({}, { q: "hello", tag: ["one", "two"] }));
+    await waitFor(() => expect(view).toHaveBeenCalledWith({ params: {}, queryString: { q: "hello", tag: ["one", "two"] } }));
     await act(() => router.navigate("/search/books?q="));
-    expect(view).toHaveBeenLastCalledWith({ category: "books" }, { q: "" });
+    expect(view).toHaveBeenLastCalledWith({ params: { category: "books" }, queryString: { q: "" } });
   });
 
   it("leaves React Router's decoded path values intact", async () => {
@@ -329,14 +329,14 @@ function verifyRendererTypes() {
   });
 
   createSpaRouter(WikiRoutes, {
-    Index: { render: (params, queryString) => {
+    Index: { render: ({ params, queryString }) => {
       // @ts-expect-error Index has no declared path parameters.
       params.wikiId;
       // @ts-expect-error Index has no declared query parameters.
       queryString.tab;
       return "index";
     } },
-    View: { render: (params, queryString) => {
+    View: { render: ({ params, queryString }) => {
       const wikiId: string = params.wikiId;
       const tab: string | undefined = queryString.tab;
       // @ts-expect-error Only declared path parameters are available.
@@ -347,7 +347,7 @@ function verifyRendererTypes() {
       const requiredTab: string = queryString.tab;
       return <p>{wikiId}: {tab}</p>;
     } },
-    Edit: { render: (params) => {
+    Edit: { render: ({ params }) => {
       const wikiId: string = params.wikiId;
       return wikiId;
     } },
@@ -368,7 +368,7 @@ function verifyRendererTypes() {
   createSpaRouter(WikiRoutes, {
     ...wikiConfig,
     // @ts-expect-error Renderers return React content, not arbitrary objects.
-    View: { render: (params) => ({ wikiId: params.wikiId }) },
+    View: { render: ({ params }) => ({ wikiId: params.wikiId }) },
   });
   createSpaRouter(WikiRoutes, {
     ...wikiConfig,
@@ -376,7 +376,7 @@ function verifyRendererTypes() {
     View: { ...wikiConfig.View, path: "/different" },
   });
   createSpaRouter(SearchRoutes, {
-    Search: { render: (params, queryString) => {
+    Search: { render: ({ params, queryString }) => {
       const category: string | undefined = params.category;
       const q: string = queryString.q;
       const tags: readonly string[] | undefined = queryString.tag;

@@ -1,10 +1,10 @@
-import { redirect } from "react-router";
+import { routeAuthorizationRedirect } from "./routeAuthorizationRedirect.js";
 import type { LoaderFunction, RouteObject } from "react-router";
 
-/** The decision for a route: allow it, or redirect the user away. */
+/** Semantic route decision shared by the wire API, resolvers, and error fallbacks. */
 export type RouteAuthorizationDecision =
-  | { type: "allow" }
-  | { type: "redirect"; location: string };
+  | { type: "allowed" }
+  | { type: "denied" | "unknown_route" | "invalid_request"; destination: string };
 
 /**
  * Decide whether a matched route is allowed — e.g. by asking your server. The
@@ -55,7 +55,7 @@ export interface RouteAuthorizationOptions {
  * createBrowserRouter(
  *   withRouteAuthorization(routes, spaRoutingResolver({
  *     applicationId: "app",
- *     onError: { type: "redirect", location: "/error" },
+ *     onError: { type: "denied", destination: "/error" },
  *   })),
  * );
  */
@@ -90,17 +90,17 @@ export function withRouteAuthorization(
       }
 
       const decision = await resolve({ route, params, request: args.request });
-      if (decision.type === "redirect") {
+      if (decision.type !== "allowed") {
         if (redirectMode === "router") {
           // React Router owns the control flow — a normal loader redirect.
-          throw redirect(decision.location);
+          throw routeAuthorizationRedirect(decision.destination, redirectMode);
         }
         // Leaving the SPA: start the document navigation and never settle, so
         // the denied route never renders while the browser unloads the page.
         // If this navigation was superseded, skip it: React Router discards
         // our result, but it could not discard a started document navigation.
         if (!args.request.signal.aborted) {
-          window.location.assign(decision.location);
+          window.location.assign(decision.destination);
         }
         return new Promise<null>(() => {});
       }

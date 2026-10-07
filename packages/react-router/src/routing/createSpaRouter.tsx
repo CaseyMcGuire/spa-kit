@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { createBrowserRouter, useLocation, useParams } from "react-router";
 import type { MiddlewareFunction, NonIndexRouteObject } from "react-router";
+import { createPreloadLifecycle } from "./preloadLifecycle.js";
 import { spaRouteContext } from "./spaRouteContext.js";
 
 /** The metadata and parser exposed by a generated spa-routing route builder. */
@@ -8,6 +9,8 @@ export interface SpaRouteDefinition {
   readonly path: string;
   readonly applicationId: string;
   readonly routeId: string;
+  /** Whether SPA navigation requires the server route-access handler. */
+  readonly hasAccessHandler: boolean;
   parse(
     params: Readonly<Record<string, string | undefined>>,
     search: URLSearchParams,
@@ -23,19 +26,23 @@ type ParsedRoute<TRoute extends SpaRouteDefinition> = NonNullable<ReturnType<TRo
  * Only `render` receives the generated types; loaders/actions/middleware retain
  * their native React Router signatures.
  */
-export type SpaRouteConfig<TRoute extends SpaRouteDefinition> = Omit<
+export type SpaRouteContext<TRoute extends SpaRouteDefinition> = Pick<ParsedRoute<TRoute>, "params" | "queryString">;
+
+export type SpaRouteConfig<TRoute extends SpaRouteDefinition, TPreload = never> = Omit<
   NonIndexRouteObject,
   "id" | "path" | "index" | "children" | "element" | "Component" | "lazy"
 > & {
-  render: (
-    params: ParsedRoute<TRoute>["params"],
-    queryString: ParsedRoute<TRoute>["queryString"],
-  ) => ReactNode;
+  preload?: (context: SpaRouteContext<TRoute>) => TPreload;
+  render: (context: NoInfer<SpaRouteContext<TRoute> &
+    (unknown extends TPreload ? {} : [TPreload] extends [never] ? {} : { preload: TPreload })>) => ReactNode;
 };
 
 /** Every generated route requires a configuration and a renderer. */
-export type SpaRouterConfig<TRoutes extends Record<string, SpaRouteDefinition>> = {
-  [Key in keyof TRoutes]-?: SpaRouteConfig<TRoutes[Key]>;
+export type SpaRouterConfig<
+  TRoutes extends Record<string, SpaRouteDefinition>,
+  TPreloads extends Record<keyof TRoutes, unknown> = Record<keyof TRoutes, never>,
+> = {
+  [Key in keyof TPreloads]-?: Key extends keyof TRoutes ? SpaRouteConfig<TRoutes[Key], TPreloads[Key]> : never;
 };
 
 type BrowserRouterOptions = NonNullable<Parameters<typeof createBrowserRouter>[1]>;
@@ -62,12 +69,16 @@ export type CreateSpaRouterOptions = BrowserRouterOptions & {
  * Middleware uses native React Router signatures without built-in authorization.
  * The returned router can be passed directly to `<RouterProvider>`.
  */
-export function createSpaRouter<TRoutes extends Record<string, SpaRouteDefinition>>(
+export function createSpaRouter<
+  TRoutes extends Record<string, SpaRouteDefinition>,
+  TPreloads extends Record<keyof TRoutes, unknown> = Record<keyof TRoutes, never>,
+>(
   routes: TRoutes,
-  config: SpaRouterConfig<NoInfer<TRoutes>>,
+  config: SpaRouterConfig<NoInfer<TRoutes>, TPreloads>,
   options: CreateSpaRouterOptions = {},
 ): ReturnType<typeof createBrowserRouter> {
-  const { sharedMiddleware = [], ...routerOptions } = options;
+  const { sharedMiddleware = [], dataStrategy, ...routerOptions } = options;
+  const preloads = createPreloadLifecycle();
 
   for (const key of Object.keys(config)) {
     if (!Object.prototype.hasOwnProperty.call(routes, key)) {
@@ -80,18 +91,24 @@ export function createSpaRouter<TRoutes extends Record<string, SpaRouteDefinitio
       throw new Error(`createSpaRouter: route "${key}" requires a render function.`);
     }
 
-    return createRouteObject(routes[key]!, config[key]!, sharedMiddleware);
+    return createRouteObject(routes[key]!, config[key]! as unknown as SpaRouteConfig<SpaRouteDefinition, unknown>, sharedMiddleware, preloads);
   });
 
-  return createBrowserRouter(routeObjects, routerOptions);
+  const router = createBrowserRouter(routeObjects, {
+    ...routerOptions,
+    dataStrategy: preloads.wrapStrategy(dataStrategy),
+  });
+  preloads.attach(router);
+  return router;
 }
 
 function createRouteObject<TRoute extends SpaRouteDefinition>(
   route: TRoute,
-  config: SpaRouteConfig<TRoute>,
+  config: SpaRouteConfig<TRoute, unknown>,
   sharedMiddleware: readonly MiddlewareFunction[],
+  preloads: ReturnType<typeof createPreloadLifecycle>,
 ): NonIndexRouteObject {
-  const { render, middleware = [], ...routeOptions } = config;
+  const { render, preload, middleware = [], ...routeOptions } = config;
 
   function RouteRenderer() {
     const params = useParams();
@@ -99,7 +116,7 @@ function createRouteObject<TRoute extends SpaRouteDefinition>(
     // Read the current URL independently of loader data: shouldRevalidate may
     // skip loaders even when query values change. Never decode path values twice.
     const parsed = parseRoute(route, params, new URLSearchParams(location.search));
-    return <>{render(parsed.params, parsed.queryString)}</>;
+    return <>{render({ ...parsed, ...(preload ? { preload: preloads.value(route.routeId) } : {}) } as SpaRouteContext<TRoute> & { preload: unknown })}</>;
   }
 
   return {
@@ -110,9 +127,13 @@ function createRouteObject<TRoute extends SpaRouteDefinition>(
     hydrateFallbackElement: routeOptions.hydrateFallbackElement
       ?? (routeOptions.HydrateFallback ? undefined : <></>),
     middleware: [
-      ({ params, request, context }) => {
-        parseRoute(route, params, new URL(request.url).searchParams);
-        context.set(spaRouteContext, { applicationId: route.applicationId, routeId: route.routeId });
+      (args) => {
+        const { params, request, context } = args;
+        const parsed = parseRoute(route, params, new URL(request.url).searchParams);
+        context.set(spaRouteContext, { applicationId: route.applicationId, routeId: route.routeId, hasAccessHandler: route.hasAccessHandler });
+        if (preload) {
+          preloads.start(args, route.routeId, () => preload(parsed));
+        }
       },
       ...sharedMiddleware,
       ...middleware,

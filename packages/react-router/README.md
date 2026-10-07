@@ -135,10 +135,10 @@ npm run typecheck:test --workspace @spa-kit/react-router
 Create the authorization middleware once and register it with `sharedMiddleware`:
 
 ```tsx
-import { createSpaRouter, createSpaRouteAuthorization } from "@spa-kit/react-router";
+import { createSpaRouter, createSpaRouteDecisionMiddleware } from "@spa-kit/react-router";
 
-const authMiddleware = createSpaRouteAuthorization({
-  onError: { type: "redirect", location: "/error" },
+const authMiddleware = createSpaRouteDecisionMiddleware({
+  onError: { type: "denied", destination: "/error" },
 });
 
 const router = createSpaRouter(WikiRoutes, routeConfig, {
@@ -146,10 +146,17 @@ const router = createSpaRouter(WikiRoutes, routeConfig, {
 });
 ```
 
-`createSpaRouter` supplies the matched generated route's `applicationId` and
-`routeId` through `spaRouteContext`, after parameter validation and before shared
-middleware runs. The authorization middleware reads those identifiers and sends
-the matched path parameters and all URL query values to `/__spa/route-decision`.
+`createSpaRouter` supplies the matched generated route's `applicationId`,
+`routeId`, and required `hasAccessHandler` through `spaRouteContext`, after
+parameter validation and before shared middleware runs. Regenerate route builders
+to include this boolean metadata.
+
+When `hasAccessHandler` is false, authorization middleware continues without an
+endpoint request. When true, it sends the matched path parameters and all URL
+query values to `/__spa/route-decision`, waiting for the decision before running
+downstream middleware, loaders, actions, or rendering. Application-level access
+is assumed to have been established by the initial full-page app load; ordinary
+SPA navigation only checks the generated route's access handler.
 There is no per-route authorization configuration or second route lookup, and
 the router's `basename` needs no separate authorization configuration.
 
@@ -157,18 +164,20 @@ An allow decision continues to subsequent middleware, loaders, and actions. A
 redirect decision prevents them from running. Requests are cancelled with the
 navigation, and a late decision cannot redirect or continue an aborted request.
 
-`createSpaRouteAuthorization` accepts:
+`createSpaRouteDecisionMiddleware` accepts:
 
 - **`onError`** — required fallback decision for failed requests, malformed
-  responses, or denial statuses. See the default resolver below.
+  responses, or unsuccessful HTTP responses. Valid server failure decisions
+  always redirect to their supplied destination. See the default resolver below.
 - **`endpoint`** — decision endpoint; defaults to `/__spa/route-decision`.
 - **`redirectMode`** — `"document"` (default) uses React Router's
   `redirectDocument`; `"router"` uses `redirect` for client-side navigation.
-  Client-side redirect destinations go through the same authorization check.
+  Client-side redirect destinations are checked only if their generated
+  `hasAccessHandler` is true.
 
 With native React Router route objects, a preceding middleware can set
 `context.set(spaRouteContext, WikiRoutes.View)` using the exported
-`spaRouteContext`. Missing route identity throws a configuration error before
+`spaRouteContext`. Missing route identity or access-handler metadata throws a configuration error before
 requesting authorization, even when `onError` allows access.
 
 ### Loader-based authorization for route objects
@@ -194,7 +203,7 @@ const routes = [
 const router = createBrowserRouter(
   withRouteAuthorization(
     routes,
-    spaRoutingResolver({ applicationId: "app", onError: { type: "redirect", location: "/error" } }),
+    spaRoutingResolver({ applicationId: "app", onError: { type: "denied", destination: "/error" } }),
   ),
 );
 ```
@@ -207,7 +216,8 @@ in the second argument to `createBrowserRouter`.
 
 - **`resolve`** — a `RouteAuthorizationResolver`: given the matched
   `{ route, params, request }`, returns a `RouteAuthorizationDecision` —
-  `{ type: "allow" }` or `{ type: "redirect", location }`. Composes with each
+  `{ type: "allowed" }` or a failure (`denied`, `unknown_route`, or
+  `invalid_request`) with a `destination`. Composes with each
   route's own `loader`.
 - **`options.redirectMode`** — how a redirect is performed:
   - `"document"` (default): full-document `window.location.assign`, for targets
@@ -235,24 +245,28 @@ decision endpoint:
 
 ```
 GET /__spa/route-decision?applicationId=app&routeId=AssetDetail&parameters.id=123
-→ { "statusCode": 200 }
-→ { "statusCode": 302, "location": "/login" }
+→ { "type": "allowed" }
+→ { "type": "denied", "destination": "/login" }
 ```
 
 Path values are sent as `parameters.*`. URL query values are sent as
 `queryString.*`, including undeclared, empty, and repeated values.
 
-The JSON decision's integer `statusCode` determines the result: `2xx` allows
-navigation, and `3xx` redirects when `location` is a nonblank string. Other
-decisions (including `403`, `404`, `500`, a missing or invalid `statusCode`, or
-a redirect without a valid location) return the required `onError` decision,
-even when the endpoint's HTTP response is `200`.
+The wire response is semantic: `{ type: "allowed" }` permits navigation.
+`denied`, `unknown_route`, and `invalid_request` each require a nonblank
+`destination` string and redirect there. The resolver returns the validated
+semantic decision unchanged; middleware and custom resolvers use the same contract.
+Legacy `statusCode`/`location` response bodies are no longer supported.
 
-Request failures (network errors, non-2xx HTTP responses, or invalid JSON) also
-return `onError`. Choose `{ type: "redirect", location }` to send the user to a
-fallback (e.g. an error or login page). Choosing `{ type: "allow" }` explicitly
-lets navigation through even for denial/error decisions; data authorization
-must still be enforced server-side.
+Request failures (network errors, non-2xx HTTP responses, invalid JSON, or a
+malformed decision) return `onError`. Choose `{ type: "denied", destination }`
+for a fallback destination or `{ type: "allowed" }` to allow navigation on such
+failures. This fallback never overrides a valid semantic failure destination.
+Aborted requests do not apply the fallback.
+
+The low-level resolver and `withRouteAuthorization` operate on native route
+objects and check every route to which they are attached. Generated
+`hasAccessHandler` gating belongs to `createSpaRouteDecisionMiddleware`.
 
 ### A custom resolver
 
@@ -262,7 +276,7 @@ elsewhere, a Relay query, your own identifier instead of `route.id`, etc.:
 ```ts
 withRouteAuthorization(routes, async ({ route, params }) => {
   const allowed = await myCheck(route.id, params);
-  return allowed ? { type: "allow" } : { type: "redirect", location: "/login" };
+  return allowed ? { type: "allowed" } : { type: "denied", destination: "/login" };
 });
 ```
 

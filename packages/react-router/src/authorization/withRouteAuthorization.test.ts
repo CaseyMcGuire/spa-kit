@@ -13,7 +13,7 @@ function firstLoader(wrapped: RouteObject[]): LoaderFunction {
   return wrapped[0]!.loader as LoaderFunction;
 }
 
-const allow: RouteAuthorizationResolver = () => ({ type: "allow" });
+const allow: RouteAuthorizationResolver = () => ({ type: "allowed" });
 
 // jsdom's AbortSignal and the Request global live in different realms, so an
 // aborted signal can't be passed through RequestInit; shadow the getter instead.
@@ -46,7 +46,7 @@ describe("withRouteAuthorization", () => {
   });
 
   it("throws a React Router redirect in router mode", async () => {
-    const resolve: RouteAuthorizationResolver = () => ({ type: "redirect", location: "/login" });
+    const resolve: RouteAuthorizationResolver = () => ({ type: "denied", destination: "/login" });
     const wrapped = withRouteAuthorization([{ id: "Assets", path: "/assets" }], resolve, {
       redirectMode: "router",
     });
@@ -63,7 +63,7 @@ describe("withRouteAuthorization", () => {
     const original = window.location;
     Object.defineProperty(window, "location", { configurable: true, value: { assign } });
     try {
-      const resolve: RouteAuthorizationResolver = () => ({ type: "redirect", location: "/login" });
+      const resolve: RouteAuthorizationResolver = () => ({ type: "denied", destination: "/login" });
       const wrapped = withRouteAuthorization([{ id: "Assets", path: "/assets" }], resolve);
 
       const result = Promise.resolve(firstLoader(wrapped)(loaderArgs("http://localhost/assets"), {}));
@@ -84,7 +84,7 @@ describe("withRouteAuthorization", () => {
     const original = window.location;
     Object.defineProperty(window, "location", { configurable: true, value: { assign } });
     try {
-      const resolve: RouteAuthorizationResolver = () => ({ type: "redirect", location: "/login" });
+      const resolve: RouteAuthorizationResolver = () => ({ type: "denied", destination: "/login" });
       const wrapped = withRouteAuthorization([{ id: "Assets", path: "/assets" }], resolve);
 
       const result = Promise.resolve(
@@ -126,7 +126,7 @@ describe("withRouteAuthorization", () => {
 
   it("does not run the leaf's own loader when denied", async () => {
     const inner = vi.fn(() => ({ data: 1 }));
-    const resolve: RouteAuthorizationResolver = () => ({ type: "redirect", location: "/login" });
+    const resolve: RouteAuthorizationResolver = () => ({ type: "denied", destination: "/login" });
     const wrapped = withRouteAuthorization([{ id: "Home", path: "/", loader: inner }], resolve, {
       redirectMode: "router",
     });
