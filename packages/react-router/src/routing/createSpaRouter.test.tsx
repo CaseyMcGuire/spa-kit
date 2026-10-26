@@ -83,9 +83,9 @@ describe("createSpaRouter", () => {
     expect(screen.getByText("42: history")).toBeInTheDocument();
     expect(loader).toHaveBeenCalledTimes(1);
 
-    await act(() => router.navigate(WikiRoutes.Edit({ wikiId: "42" })));
+    await act(() => router.navigate(WikiRoutes.Edit({ wikiId: "42" }).href));
     expect(screen.getByText("Edit 42")).toBeInTheDocument();
-    await act(() => router.navigate(WikiRoutes.Index()));
+    await act(() => router.navigate(WikiRoutes.Index().href));
     expect(screen.getByText("index")).toBeInTheDocument();
     expect(sharedMiddleware.mock.calls.map(([{ request }]) => {
       const url = new URL(request.url);
@@ -129,7 +129,7 @@ describe("createSpaRouter", () => {
   });
 
   it("leaves React Router's decoded path values intact", async () => {
-    window.history.replaceState(null, "", WikiRoutes.View({ wikiId: "雪%25" }));
+    window.history.replaceState(null, "", WikiRoutes.View({ wikiId: "雪%25" }).href);
     mountRouter(createSpaRouter(WikiRoutes, wikiConfig));
     expect(await screen.findByText("雪%25: default")).toBeInTheDocument();
   });
@@ -249,7 +249,7 @@ describe("createSpaRouter", () => {
         ...wikiConfig.View,
         render: view,
         loader,
-        middleware: [() => { throw redirect(WikiRoutes.Index()); }],
+        middleware: [() => { throw redirect(WikiRoutes.Index().href); }],
       },
     }));
 
@@ -270,7 +270,7 @@ describe("createSpaRouter", () => {
     }, {
       sharedMiddleware: [({ params }) => {
         if (params.wikiId !== undefined) {
-          throw redirect(WikiRoutes.Index());
+          throw redirect(WikiRoutes.Index().href);
         }
       }],
     });

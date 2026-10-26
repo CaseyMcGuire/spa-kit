@@ -3,6 +3,7 @@ import { createBrowserRouter, useLocation, useParams } from "react-router";
 import type { MiddlewareFunction, NonIndexRouteObject } from "react-router";
 import { createPreloadLifecycle } from "./preloadLifecycle.js";
 import { spaRouteContext } from "./spaRouteContext.js";
+import { spaApplicationContext } from "../navigation/spaApplicationContext.js";
 
 /** The metadata and parser exposed by a generated spa-routing route builder. */
 export interface SpaRouteDefinition {
@@ -68,6 +69,7 @@ export type CreateSpaRouterOptions = BrowserRouterOptions & {
  * Shared middleware runs on every generated route, before its own middleware.
  * The matched generated identity is available through `spaRouteContext`.
  * Middleware uses native React Router signatures without built-in authorization.
+ * Rendered route content also receives application identity for useSpaNavigate.
  * The returned router can be passed directly to `<RouterProvider>`.
  */
 export function createSpaRouter<
@@ -109,7 +111,15 @@ function createRouteObject<TRoute extends SpaRouteDefinition>(
   sharedMiddleware: readonly MiddlewareFunction[],
   preloads: ReturnType<typeof createPreloadLifecycle>,
 ): NonIndexRouteObject {
-  const { render, preload, middleware = [], ...routeOptions } = config;
+  const {
+    render, preload, middleware = [],
+    ErrorBoundary, errorElement, HydrateFallback, hydrateFallbackElement,
+    ...routeOptions
+  } = config;
+
+  function withApplicationContext(content: ReactNode) {
+    return <spaApplicationContext.Provider value={route.applicationId}>{content}</spaApplicationContext.Provider>;
+  }
 
   function RouteRenderer() {
     const params = useParams();
@@ -117,7 +127,7 @@ function createRouteObject<TRoute extends SpaRouteDefinition>(
     // Read the current URL independently of loader data: shouldRevalidate may
     // skip loaders even when query values change. Never decode path values twice.
     const parsed = parseRoute(route, params, new URLSearchParams(location.search));
-    return <>{render({ ...parsed, ...(preload ? { preload: preloads.value(route.routeId) } : {}) } as SpaRouteContext<TRoute> & { preload: unknown })}</>;
+    return withApplicationContext(render({ ...parsed, ...(preload ? { preload: preloads.value(route.routeId) } : {}) } as SpaRouteContext<TRoute> & { preload: unknown }));
   }
 
   return {
@@ -125,8 +135,14 @@ function createRouteObject<TRoute extends SpaRouteDefinition>(
     id: route.routeId,
     path: route.path,
     Component: RouteRenderer,
-    hydrateFallbackElement: routeOptions.hydrateFallbackElement
-      ?? (routeOptions.HydrateFallback ? undefined : <></>),
+    // Preserve React Router's component-over-element precedence and leave absent
+    // error boundaries absent so errors still bubble normally.
+    errorElement: ErrorBoundary
+      ? withApplicationContext(<ErrorBoundary />)
+      : errorElement != null ? withApplicationContext(errorElement) : errorElement,
+    hydrateFallbackElement: withApplicationContext(
+      HydrateFallback ? <HydrateFallback /> : hydrateFallbackElement ?? <></>,
+    ),
     middleware: [
       (args) => {
         const { params, request, context } = args;

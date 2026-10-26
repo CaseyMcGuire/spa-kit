@@ -9,7 +9,7 @@ type ParsedRouteValues<Params, QueryString, Identity extends readonly [string, s
 type RawParams = Readonly<Record<string, string | undefined>>;
 
 export const WikiRoutes = {
-  Index: Object.assign(() => "/wiki", {
+  Index: Object.assign(() => ({ href: "/wiki", applicationId: "wiki", routeId: "Index" } as const), {
     path: "/wiki",
     applicationId: "wiki",
     routeId: "Index",
@@ -19,7 +19,10 @@ export const WikiRoutes = {
   View: Object.assign(
     (params: { wikiId: string }, queryString: { tab?: string } = {}) => {
       const search = new URLSearchParams(queryString).toString();
-      return `/wiki/${encodeURIComponent(params.wikiId)}${search ? `?${search}` : ""}`;
+      return {
+        href: `/wiki/${encodeURIComponent(params.wikiId)}${search ? `?${search}` : ""}`,
+        applicationId: "wiki", routeId: "View",
+      } as const;
     },
     {
       path: "/wiki/:wikiId",
@@ -39,7 +42,9 @@ export const WikiRoutes = {
       },
     },
   ),
-  Edit: Object.assign((params: { wikiId: string }) => `/wiki/${encodeURIComponent(params.wikiId)}/edit`, {
+  Edit: Object.assign((params: { wikiId: string }) => ({
+    href: `/wiki/${encodeURIComponent(params.wikiId)}/edit`, applicationId: "wiki", routeId: "Edit",
+  } as const), {
     path: "/wiki/:wikiId/edit",
     applicationId: "wiki",
     routeId: "Edit",
@@ -53,26 +58,38 @@ export const WikiRoutes = {
 } as const;
 
 export const SearchRoutes = {
-  Search: {
-    path: "/search/:category?",
-    applicationId: "search",
-    routeId: "Search",
-    hasAccessHandler: true,
-    parse(params: RawParams, search: URLSearchParams):
-      ParsedRouteValues<{ category?: string }, { q: string; tag?: readonly string[] }, readonly ["search", "Search"]> | null {
-      const queries = search.getAll("q");
-      if (queries.length !== 1) {
-        return null;
+  Search: Object.assign(
+    (params: { category?: string }, queryString: { q: string; tag?: readonly string[] }) => {
+      const search = new URLSearchParams({ q: queryString.q });
+      for (const tag of queryString.tag ?? []) {
+        search.append("tag", tag);
       }
       return {
-        params: params.category === undefined ? {} : { category: params.category },
-        queryString: {
-          q: queries[0]!,
-          ...(search.has("tag") ? { tag: search.getAll("tag") } : {}),
-        },
-      } as ParsedRouteValues<{ category?: string }, { q: string; tag?: readonly string[] }, readonly ["search", "Search"]>;
+        href: `/search${params.category === undefined ? "" : `/${encodeURIComponent(params.category)}`}?${search}`,
+        applicationId: "search", routeId: "Search",
+      } as const;
     },
-  },
+    {
+      path: "/search/:category?",
+      applicationId: "search",
+      routeId: "Search",
+      hasAccessHandler: true,
+      parse(params: RawParams, search: URLSearchParams):
+        ParsedRouteValues<{ category?: string }, { q: string; tag?: readonly string[] }, readonly ["search", "Search"]> | null {
+        const queries = search.getAll("q");
+        if (queries.length !== 1) {
+          return null;
+        }
+        return {
+          params: params.category === undefined ? {} : { category: params.category },
+          queryString: {
+            q: queries[0]!,
+            ...(search.has("tag") ? { tag: search.getAll("tag") } : {}),
+          },
+        } as ParsedRouteValues<{ category?: string }, { q: string; tag?: readonly string[] }, readonly ["search", "Search"]>;
+      },
+    },
+  ),
 } as const;
 
 // Match spa-routing 0.5.0's generated public aliases.

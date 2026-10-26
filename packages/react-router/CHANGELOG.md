@@ -1,5 +1,22 @@
 # @spa-kit/react-router
 
+## 0.4.0
+
+### Minor Changes
+
+- Add `useSpaNavigate` and `SpaLink` for completed spa-routing destination objects.
+  Navigation uses React Router within the matched application and a full-page
+  request across applications, with replace support in the hook and native anchor
+  interactions in links.
+
+  Supply application identity automatically from each matched generated route,
+  including configured error and hydration fallback content, without an additional
+  provider or application-ID argument. Export structural `RouteTarget`,
+  `SpaNavigateFunction`, `SpaNavigateOptions`, and `SpaLinkProps` types. Document the
+  router-relative internal href and document-URL external href basename convention.
+  Existing middleware context, semantic route decisions, and preload behavior are
+  preserved.
+
 ## 0.3.0
 
 ### Minor Changes

@@ -251,10 +251,10 @@ describe("createSpaRouteDecisionMiddleware", () => {
     mountRouter(router);
     await screen.findByText("index");
 
-    await act(() => router.navigate(WikiRoutes.View({ wikiId: "雪%2F%25" }, { tab: "a b+&" })));
+    await act(() => router.navigate(WikiRoutes.View({ wikiId: "雪%2F%25" }, { tab: "a b+&" }).href));
     // React Router turns %2F into /; the remaining %25 must not be decoded again.
     expect(screen.getByText("view 雪/%25")).toBeInTheDocument();
-    await act(() => router.navigate(WikiRoutes.Edit({ wikiId: "42" })));
+    await act(() => router.navigate(WikiRoutes.Edit({ wikiId: "42" }).href));
     await act(() => router.navigate("/search/books?q=hello&tag=one&tag=two&extra=kept"));
     await act(() => router.navigate("/search?q="));
 

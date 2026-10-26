@@ -175,6 +175,134 @@ npm test -- packages/react-router/src/routing/createSpaRouter.test.tsx
 npm run typecheck:test --workspace @spa-kit/react-router
 ```
 
+## Navigating between applications
+
+`useSpaNavigate` and `SpaLink` accept the completed `RouteTarget` returned by a
+spa-routing builder. Regenerate your client routes with a generator that emits
+this destination-object contract:
+
+```ts
+type RouteTarget = {
+  readonly href: string;
+  readonly applicationId: string;
+  readonly routeId: string;
+};
+
+PuzzlrRoutes.Home();
+// { href: "/", applicationId: "app", routeId: "Home" }
+```
+
+The builder validates typed arguments and constructs the URL. Pass its result
+directly; neither strings nor uncalled builder functions are accepted by these
+navigation APIs. The exported `RouteTarget` is structurally compatible with the
+generated type and does not require importing any application-specific code into
+this package.
+
+### Programmatic navigation
+
+```tsx
+import { useSpaNavigate } from "@spa-kit/react-router";
+import { AuthRoutes } from "./generated/AuthRoutes";
+import { PuzzlrRoutes } from "./generated/PuzzlrRoutes";
+
+function NavigationButtons() {
+  const navigate = useSpaNavigate();
+
+  return <>
+    <button onClick={() => { void navigate(AuthRoutes.Register()); }}>Register</button>
+    <button onClick={() => { void navigate(PuzzlrRoutes.Home()); }}>Home</button>
+    <button onClick={() => {
+      void navigate(PuzzlrRoutes.Puzzle({ id: "42" }, { tab: "stats" }));
+    }}>Puzzle stats</button>
+    <button onClick={() => { void navigate(AuthRoutes.Login(), { replace: true }); }}>
+      Log in
+    </button>
+  </>;
+}
+```
+
+These route names and parameters are illustrative; your generated builders retain
+their own typed signatures. The hook compares the target's `applicationId` with
+the currently rendered route's identity:
+
+- Same application: delegates to React Router's `navigate` using `target.href`.
+- Different application: performs a full-page request using
+  `window.location.assign(target.href)`.
+- `{ replace: true }`: replaces the current history entry using React Router's
+  replace option internally or `window.location.replace` across applications.
+
+`replace` is the only navigation option. Internal navigation may return React
+Router's completion promise; document navigation returns `void`. The public
+function and options types are `SpaNavigateFunction` and `SpaNavigateOptions`.
+
+### Links
+
+```tsx
+import { SpaLink } from "@spa-kit/react-router";
+
+<SpaLink to={AuthRoutes.Register()}>Register</SpaLink>
+<SpaLink to={PuzzlrRoutes.Home()}>Home</SpaLink>
+<SpaLink to={PuzzlrRoutes.Puzzle({ id: "42" }, { tab: "stats" })}
+  target="_blank" rel="noopener">
+  Open puzzle stats
+</SpaLink>
+```
+
+`SpaLink` uses React Router's `Link` within the current application and a normal
+anchor for another application. It accepts normal anchor attributes, children,
+and an anchor ref; the exported `SpaLinkProps` replaces `href` with `to`.
+The rendered anchor always has its destination URL, so copying the link and
+opening it in another tab work normally. Modifier keys, middle-click, named
+browsing targets, and `target="_blank"` retain browser behavior. Download links
+also use browser navigation, including for the current application.
+A caller's `onClick` runs normally and can cancel navigation with `preventDefault`.
+
+### Automatic identity and authorization
+
+Continue mounting the router with `<RouterProvider router={router} />`.
+`createSpaRouter` supplies React application context automatically to each
+matched route's rendered components, configured error boundary, and hydration
+fallback. Identity comes from that matched route, including in mixed-application
+registries, and stays isolated between router instances. No application-ID
+argument or manually installed provider is needed. Using these APIs outside that
+rendered tree throws a configuration error. Put hooks in the components returned
+by `render`, as with other React hooks in this integration.
+
+This React context is separate from the exported React Router middleware context
+`spaRouteContext`. Setting middleware context on a manually created router does
+not install the React context needed by these navigation APIs.
+
+Application ownership is determined only by `applicationId`, never by matching
+paths or prefixes. Internal navigation still runs the normal route parsing,
+preload, configured route-decision middleware, and loader pipeline. Cross-application
+navigation loads the destination document, letting its server perform the usual
+application access check. Route-decision failure responses continue to contain
+string destinations; this navigation API does not change that protocol.
+
+### URLs and router basenames
+
+These APIs pass the supplied `href` through without reconstructing parameters,
+encoding values again, or removing generated application prefixes.
+With the default basename `/`, the destination URL is the generated `href`.
+
+With an explicit React Router basename, the same convention as native React
+Router navigation applies **within the current application**: `href` is relative
+to the router root, and React Router adds the basename. For example, a generated
+`href` of `/wiki/42?tab=stats` under `basename: "/app"` navigates to and renders a
+link for `/app/wiki/42?tab=stats`. Do not also include `/app` in that internal
+`href`, or it will be applied twice. Route patterns likewise remain relative to
+the router root.
+
+**Cross-application `href`s are document URLs.** They are used unchanged, so a
+destination deployed under `/other-app` must supply that prefix itself. The
+current router's basename is never applied to another application's URL. If your
+generator already includes the entire document path in all targets and route
+patterns, use the default basename `/`.
+
+When using lower-level React Router APIs directly, extract the string explicitly:
+`router.navigate(target.href)` or `redirect(target.href)`. Those APIs do not
+perform the application-ID comparison provided by `useSpaNavigate` and `SpaLink`.
+
 ## Authorizing routes
 
 > This guards the *navigation* (don't render a route the user can't see; redirect
